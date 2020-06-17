@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: certmanager-operator
+  namespace: certmanager-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: certmanager-operator
+  template:
+    metadata:
+      labels:
+        name: certmanager-operator
+    spec:
+      serviceAccountName: certmanager-operator
+      containers:
+        - name: certmanager-operator
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          command:
+          - certmanager-operator
+          imagePullPolicy: Always
+          env:
+            # set to empty string for cluster-scope
+            - name: WATCH_NAMESPACE 
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "certmanager-operator"

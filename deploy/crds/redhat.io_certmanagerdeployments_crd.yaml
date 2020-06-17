@@ -1,0 +1,56 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: certmanagerdeployments.redhat.io
+spec:
+  group: redhat.io
+  names:
+    kind: CertManagerDeployment
+    listKind: CertManagerDeploymentList
+    plural: certmanagerdeployments
+    singular: certmanagerdeployment
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CertManagerDeployment is the Schema for the certmanagerdeployments
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CertManagerDeploymentSpec defines the desired state of CertManagerDeployment
+            properties:
+              identifier:
+                description: Identifier is a string identifying a given CertManagerDeployment.
+                type: string
+            required:
+            - identifier
+            type: object
+          status:
+            description: CertManagerDeploymentStatus defines the observed state of
+              CertManagerDeployment
+            properties:
+              discoveredIdentifier:
+                description: DiscoveredIdentifier is the identifier used to initialize
+                  this resource at initial creation.
+                type: string
+            required:
+            - discoveredIdentifier
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

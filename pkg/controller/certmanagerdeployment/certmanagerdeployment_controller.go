@@ -1,0 +1,409 @@
+package certmanagerdeployment
+
+import (
+	"context"
+
+	"github.com/go-logr/logr"
+	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+var log = logf.Log.WithName("controller_certmanagerdeployment")
+
+// Add creates a new CertManagerDeployment Controller and adds it to the Manager. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(mgr manager.Manager) error {
+	return add(mgr, newReconciler(mgr))
+}
+
+// newReconciler returns a new reconcile.Reconciler
+func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	return &ReconcileCertManagerDeployment{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+}
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	// Create a new controller
+	c, err := controller.New("certmanagerdeployment-controller", mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to primary resource CertManagerDeployment
+	err = c.Watch(&source.Kind{Type: &redhatv1alpha1.CertManagerDeployment{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// Watch Service Accounts
+	if err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &redhatv1alpha1.CertManagerDeployment{}}); err != nil {
+		return err
+	}
+
+	// Watch Roles
+	if err = c.Watch(&source.Kind{Type: &rbacv1.Role{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &redhatv1alpha1.CertManagerDeployment{}}); err != nil {
+		return err
+	}
+
+	// Watch RoleBindings
+	if err := c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
+		}); err != nil {
+		return err
+	}
+
+	// Watch ClusterRoles
+	if err := c.Watch(&source.Kind{Type: &rbacv1.ClusterRole{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
+		}); err != nil {
+		return err
+	}
+
+	// Watch ClusterRoleBindings
+	if err := c.Watch(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
+		}); err != nil {
+		return err
+	}
+
+	// Watch deployments
+	if err := c.Watch(&source.Kind{Type: &appsv1.Deployment{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
+		}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// blank assignment to verify that ReconcileCertManagerDeployment implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileCertManagerDeployment{}
+
+// ReconcileCertManagerDeployment reconciles a CertManagerDeployment object
+type ReconcileCertManagerDeployment struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client client.Client
+	scheme *runtime.Scheme
+}
+
+// Reconcile reads that state of the cluster for a CertManagerDeployment object and makes changes based on the state read
+// and what is in the CertManagerDeployment.Spec
+func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling CertManagerDeployment")
+	defer reqLogger.Info("Done Reconciling CertManagerDeployment")
+
+	// Fetch the CertManagerDeployment instance
+	instance := &redhatv1alpha1.CertManagerDeployment{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileNamespace(r, instance, reqLogger.WithValues("Reconciling", "Namespaces")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling Namespace")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileServiceAccounts(r, instance, reqLogger.WithValues("Reconciling", "ServiceAccounts")); err != nil {
+		// TODO(?): Is the inclusion of the error here redundant? Shoudl we log the actual error in the reconciler
+		// and then use a generic error here?
+		reqLogger.Error(err, "Encountered error reconciling ServiceAccounts")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileRoles(r, instance, reqLogger.WithValues("Reconciling", "Roles")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciliing Roles")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileRoleBindings(r, instance, reqLogger.WithValues("Reconciling", "RoleBindings")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling RoleBindings")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileClusterRoles(r, instance, reqLogger.WithValues("Reconciling", "ClusterRoles")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling ClusterRoles")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileClusterRoleBindings(r, instance, reqLogger.WithValues("Reconciling", "ClusterRoleBindings")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling ClusterRoleBindings")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileDeployments(r, instance, reqLogger.WithValues("Reconciling", "Deployments")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling Deployments")
+		return reconcile.Result{}, err
+	}
+
+	// We had no error in reconciliation so we do not requeue.
+	return reconcile.Result{}, nil
+}
+
+// reconcileNamespace will get the namespace specifications for a given CertManagerDeployment, add an owner reference to
+// the generated specification, then check for the existence or otherwise create that specification. Returns an
+// error if encountered, or nil, which helps inform whether the reconcile needs to requeue the request.
+func reconcileNamespace(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: namespace")
+	defer reqLogger.Info("Ending reconciliation: namespace")
+
+	// Check if a namespace with the same name exists already.
+	found := &corev1.Namespace{}
+	err := r.client.Get(
+		context.TODO(),
+		types.NamespacedName{Name: CertManagerDeploymentNamespace},
+		found,
+	)
+
+	// Create it if it doesn't exist.
+	if err != nil && errors.IsNotFound(err) {
+		// We didn't find this namespace already, so create it.
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: CertManagerDeploymentNamespace,
+			},
+		}
+		if err := controllerutil.SetControllerReference(instance, ns, r.scheme); err != nil {
+			// failed to set the controller reference
+			return err
+		}
+
+		reqLogger.Info("Creating namespace", "Namespace.Name", ns.Name)
+		err = r.client.Create(context.TODO(), ns)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		// some error occured when trying to see if a namespace with
+		// this name already existsed.
+		return err
+	}
+
+	return nil
+}
+
+// reconcileRoles will get all role specifications for a given CertManagerDeployment, add an owner reference to
+// the generated specification, then check for the existence or otherwise create that specification. Returns an
+// error if encountered, or nil. This helps inform whether the reconciliation loop should requeue.
+func reconcileRoles(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: roles")
+	defer reqLogger.Info("Ending reconciliation: roles")
+	var err error
+
+	getter := ResourceGetter{CustomResource: *instance}
+	roles := getter.GetRoles()
+
+	for _, role := range roles {
+		// add controller reference to the generated roles for this CR.
+		if err := controllerutil.SetControllerReference(instance, role, r.scheme); err != nil {
+			return err
+		}
+		found := &rbacv1.Role{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, found)
+
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating role", "Role.Namespace", role.Namespace, "Role.Name", role.Name)
+			err = r.client.Create(context.TODO(), role)
+			if err != nil {
+				return err
+			}
+			// role created successfully, don't requeue
+			// success case return at end of function.
+		} else if err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
+func reconcileServiceAccounts(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: service accounts")
+	defer reqLogger.Info("Ending reconciliation: service accounts")
+	var err error
+
+	getter := ResourceGetter{CustomResource: *instance}
+	sas := getter.GetServiceAccounts()
+
+	for _, sa := range sas {
+		// add controller references to the generated service accounts for this CR.
+		if err := controllerutil.SetControllerReference(instance, sa, r.scheme); err != nil {
+			return err
+		}
+		found := &corev1.ServiceAccount{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace}, found)
+
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating service account", "ServiceAccount.Namespace", sa.Namespace, "ServiceAccount.Name", sa.Name)
+			err = r.client.Create(context.TODO(), sa)
+			if err != nil {
+				return err
+			}
+
+			// ServiceAccount created successfully - don't requeue
+		} else if err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
+// reconcileRoleBindings will reconcile the Clusterroles for a given CertManagerDeployment custom resource.
+func reconcileRoleBindings(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: role bindings")
+	defer reqLogger.Info("Ending reconciliation: role bindings")
+
+	getter := ResourceGetter{CustomResource: *instance}
+	rbs := getter.GetRoleBindings()
+
+	for _, rolebinding := range rbs {
+		if err := controllerutil.SetControllerReference(instance, rolebinding, r.scheme); err != nil {
+			return err
+		}
+
+		found := &rbacv1.RoleBinding{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: rolebinding.Name, Namespace: rolebinding.Namespace}, found)
+
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating new rolebinding", "RoleBinding.Name", rolebinding.Name,
+				"Rolebinding.Namespace", rolebinding.Namespace,
+				"Rolebinding.RoleRef.Kind", rolebinding.RoleRef.Kind)
+			err = r.client.Create(context.TODO(), rolebinding)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// reconcileClusterRoleBindings will reconcile the ClusterRoleBindings for a given CertManagerDeployment custom resource.
+func reconcileClusterRoleBindings(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: cluster role bindings")
+	defer reqLogger.Info("Ending reconciliation: cluster role bindings")
+
+	getter := ResourceGetter{CustomResource: *instance}
+	crbs := getter.GetClusterRoleBindings()
+
+	for _, clusterRoleBinding := range crbs {
+		if err := controllerutil.SetControllerReference(instance, clusterRoleBinding, r.scheme); err != nil {
+			return err
+
+		}
+		found := &rbacv1.ClusterRoleBinding{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: clusterRoleBinding.Name}, found)
+
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating new clusterrolebinding", "ClusterRoleBinding.Name", clusterRoleBinding.Name,
+				"ClusterRolebinding.RoleRef.Kind", clusterRoleBinding.RoleRef.Kind)
+			err = r.client.Create(context.TODO(), clusterRoleBinding)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// reconcileClusterRoles will reconcile the ClusterRoles for a given CertManagerDeployment custom resource.
+func reconcileClusterRoles(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: cluster roles")
+	defer reqLogger.Info("Ending reconciliation: cluster roles")
+
+	// Get Cluster Roles for CR
+	getter := ResourceGetter{CustomResource: *instance}
+	crls := getter.GetClusterRoles()
+
+	// set controller references on those objects
+	for _, clusterRole := range crls {
+		if err := controllerutil.SetControllerReference(instance, clusterRole, r.scheme); err != nil {
+			return err
+		}
+
+		found := &rbacv1.ClusterRole{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      clusterRole.GetName(),
+			Namespace: clusterRole.Namespace, // this should be empty
+		}, found)
+
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating Cluster Role", "ClusterRole.Namespace", clusterRole.GetNamespace(), "ClusterRole.Name", clusterRole.GetName())
+			if err := r.client.Create(context.TODO(), clusterRole); err != nil {
+				return err
+			}
+			// clusterRole was created successfully so we don't requeue.
+		} else if err != nil {
+			// We had an error when getting the type, and it was not a NotFound error.
+			return err
+		}
+	}
+
+	return nil
+}
+
+// reconcileDeployments will reconcile the Deployment resources for a given CertManagerDeployment CustomResource
+func reconcileDeployments(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: deployments")
+	defer reqLogger.Info("Ending reconciliation: deployments")
+
+	// Get Cluster Roles for CR
+	getter := ResourceGetter{CustomResource: *instance}
+	deps := getter.GetDeployments()
+
+	// set controller reference on those objects
+	for _, dep := range deps {
+		// we failed to set the controller reference so we return
+		if err := controllerutil.SetControllerReference(instance, dep, r.scheme); err != nil {
+			return err
+		}
+		found := &appsv1.Deployment{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: dep.GetNamespace(), Name: dep.GetName()}, found)
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating Deployment", "Deployment.Namespace", dep.GetNamespace(), "Deployment.Name", dep.GetName())
+			if err := r.client.Create(context.TODO(), dep); err != nil {
+				return err
+			}
+		} else if err != nil {
+			// we had an error, but it was not a NotFound error.
+			return err
+		}
+	}
+
+	return nil
+}

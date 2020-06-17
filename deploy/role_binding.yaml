@@ -1,0 +1,11 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: certmanager-operator
+subjects:
+- kind: ServiceAccount
+  name: certmanager-operator
+roleRef:
+  kind: ClusterRole
+  name: certmanager-operator
+  apiGroup: rbac.authorization.k8s.io
