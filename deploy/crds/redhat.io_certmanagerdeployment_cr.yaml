@@ -4,4 +4,6 @@ metadata:
   name: example-certmanagerdeployment
 spec:
   identifier: "1234567890"
-  manageClusterRoles: true
+  dangerZone:
+    imageOverrides:
+      webhook: "foo/bar/test:v1.2.3"

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -8,6 +9,22 @@ import (
 type CertManagerDeploymentSpec struct {
 	// Identifier is a string identifying a given CertManagerDeployment.
 	Identifier string `json:"identifier"`
+	// +optional
+	DangerZone DangerZone `json:"dangerZone,omitempty"`
+}
+
+// DangerZone is a set of configuration options that may cause the stability
+// or reliability of the controller to break, but are exposed in case they
+// need to be tweaked.
+type DangerZone struct {
+	// ImageOverrides is a map of CertManagerComponent names to image strings
+	// in format /registry/image-name:tag
+	// +optional
+	ImageOverrides map[string]string `json:"imageOverrides,omitempty"`
+	// ImagePullPolicy is the policy to apply to all CertManagerComponent deployments.
+	// +kubebuilder:validation:Enum=Always;Never;IfNotPresent
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // CertManagerDeploymentStatus defines the observed state of CertManagerDeployment

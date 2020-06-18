@@ -32,6 +32,26 @@ spec:
           spec:
             description: CertManagerDeploymentSpec defines the desired state of CertManagerDeployment
             properties:
+              dangerZone:
+                description: DangerZone is a set of configuration options that may
+                  cause the stability or reliability of the controller to break, but
+                  are exposed in case they need to be tweaked.
+                properties:
+                  imageOverrides:
+                    additionalProperties:
+                      type: string
+                    description: ImageOverrides is a map of CertManagerComponent names
+                      to image strings in format /registry/image-name:tag
+                    type: object
+                  imagePullPolicy:
+                    description: ImagePullPolicy is the policy to apply to all CertManagerComponent
+                      deployments.
+                    enum:
+                    - Always
+                    - Never
+                    - IfNotPresent
+                    type: string
+                type: object
               identifier:
                 description: Identifier is a string identifying a given CertManagerDeployment.
                 type: string

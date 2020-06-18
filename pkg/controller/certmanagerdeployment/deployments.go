@@ -1,6 +1,8 @@
 package certmanagerdeployment
 
 import (
+	"reflect"
+
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -8,6 +10,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/kubernetes/pkg/util/labels"
 )
+
+// DeploymentCustomizations are the values from the CustomResource that will
+// impact the deployment for a given CertManagerComponent.
+type DeploymentCustomizations struct {
+	// ContainerImage is a container image to be used for a component
+	// in the format /registry/container-image:tag
+	ContainerImage  string
+	ImagePullPolicy corev1.PullPolicy
+}
 
 var (
 	// oneReplica is a value of 1 of type int32 to be used
@@ -158,15 +169,37 @@ var (
 // custom resource.
 func (r *ResourceGetter) GetDeployments() []*appsv1.Deployment {
 	return []*appsv1.Deployment{
-		newDeployment(CAInjector, r.CustomResource),
-		newDeployment(Controller, r.CustomResource),
-		newDeployment(Webhook, r.CustomResource),
+		newDeployment(CAInjector, r.CustomResource, r.GetDeploymentCustomizations(CAInjector)),
+		newDeployment(Controller, r.CustomResource, r.GetDeploymentCustomizations(Controller)),
+		newDeployment(Webhook, r.CustomResource, r.GetDeploymentCustomizations(Webhook)),
 	}
+}
+
+// GetDeploymentCustomizations will return a DeploymentCustomization object for a given
+// CertManagerComponent. This helps derive the resulting DeploymentSpec for the component.
+func (r *ResourceGetter) GetDeploymentCustomizations(comp CertManagerComponent) DeploymentCustomizations {
+	dc := DeploymentCustomizations{}
+
+	// Check if the image has been overridden
+	imageOverrides := r.CustomResource.Spec.DangerZone.ImageOverrides
+	if !reflect.DeepEqual(imageOverrides, map[string]string{}) {
+		// imageOverrides is not empty, get the image value for this component.
+		dc.ContainerImage = imageOverrides[comp.Name]
+	}
+
+	// check if pull policy has been overridden
+	pullPolicyOverride := r.CustomResource.Spec.DangerZone.ImagePullPolicy
+	var emptyPullPolicy corev1.PullPolicy
+	if !reflect.DeepEqual(pullPolicyOverride, emptyPullPolicy) {
+		dc.ImagePullPolicy = pullPolicyOverride
+	}
+
+	return dc
 }
 
 // newDeployment returns a Deployment object for a given CertManagerComponent
 // and CertManagerDeployment CustomResource
-func newDeployment(comp CertManagerComponent, cr redhatv1alpha1.CertManagerDeployment) *appsv1.Deployment {
+func newDeployment(comp CertManagerComponent, cr redhatv1alpha1.CertManagerDeployment, cstm DeploymentCustomizations) *appsv1.Deployment {
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      comp.GetResourceName(),
@@ -177,22 +210,47 @@ func newDeployment(comp CertManagerComponent, cr redhatv1alpha1.CertManagerDeplo
 	}
 
 	// Add the service account entry to the base deployment
-	addServiceAccount(deploy, comp.ServiceAccountName)
+	setServiceAccount(deploy, comp.ServiceAccountName)
 
 	// add the label selectors for the base deployment
 	sel := comp.GetBaseLabelSelector()
 	sel = labels.AddLabelToSelector(sel, "app.kubernetes.io/instance", cr.Name)
 	deploy.Spec.Selector = sel
 
-	// TODO(): Should probably handle the below blank-assigned error in osme way.
+	// TODO(): Should probably handle the below blank-assigned error in some way.
 	selmap, _ := metav1.LabelSelectorAsMap(sel)
 	deploy.Spec.Template.ObjectMeta.Labels = selmap
+
+	// If the CR contains a customized container image for the component, override our deployment
+	if cstm.ContainerImage != "" {
+		// TODO(): I'm assuming a single container image per deployment for the components because
+		// That is what's true today. If this changes, this will need to be updated.
+		deploy.Spec.Template.Spec.Containers[0].Image = cstm.ContainerImage
+	}
+
+	// If the CR contains a customized image pull policy: override our deployment
+	if cstm.ImagePullPolicy != "" {
+		deploy.Spec.Template.Spec.Containers[0].ImagePullPolicy = cstm.ImagePullPolicy
+	}
+
 	return deploy
 }
 
-// addServiceAccount adds the service account to a given DeploymentSpec Object, or
+// setServiceAccount adds the service account to a given DeploymentSpec Object, or
 // overwrites the value for the service acccount if one already exists.
-func addServiceAccount(deploy *appsv1.Deployment, sa string) *appsv1.Deployment {
+func setServiceAccount(deploy *appsv1.Deployment, sa string) *appsv1.Deployment {
 	deploy.Spec.Template.Spec.ServiceAccountName = sa
 	return deploy
+}
+
+// setContainerImage will update a container object's image.
+func setContainerImage(container *corev1.Container, image string) *corev1.Container {
+	container.Image = image
+	return container
+}
+
+// setContainerImage will update a container object's image.
+func setImagePullPolicy(container *corev1.Container, policy corev1.PullPolicy) *corev1.Container {
+	container.ImagePullPolicy = policy
+	return container
 }

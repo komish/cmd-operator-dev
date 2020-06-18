@@ -100,7 +100,8 @@ type ResourceGetter struct {
 	CustomResource redhatv1alpha1.CertManagerDeployment
 }
 
-// GetBaseLabelSelector is...TODO(komish)
+// GetBaseLabelSelector returns label selectors using metadatda available on the
+// CertManagerComponent as values.
 // TODO(komish): This returns a LabelSelector for a component, but doesn't use the
 // component's own pre-defined Labels struct key. Need to check what's using this
 // and if we can just derive the LabelSelector from the Labels that are already
