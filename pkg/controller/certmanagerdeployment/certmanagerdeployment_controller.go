@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
+	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -186,7 +187,7 @@ func reconcileNamespace(r *ReconcileCertManagerDeployment, instance *redhatv1alp
 	found := &corev1.Namespace{}
 	err := r.client.Get(
 		context.TODO(),
-		types.NamespacedName{Name: CertManagerDeploymentNamespace},
+		types.NamespacedName{Name: componentry.CertManagerDeploymentNamespace},
 		found,
 	)
 
@@ -195,7 +196,7 @@ func reconcileNamespace(r *ReconcileCertManagerDeployment, instance *redhatv1alp
 		// We didn't find this namespace already, so create it.
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: CertManagerDeploymentNamespace,
+				Name: componentry.CertManagerDeploymentNamespace,
 			},
 		}
 		if err := controllerutil.SetControllerReference(instance, ns, r.scheme); err != nil {

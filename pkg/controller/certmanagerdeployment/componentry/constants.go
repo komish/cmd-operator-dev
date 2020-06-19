@@ -1,0 +1,12 @@
+package componentry
+
+const (
+	// CertManagerBaseName is the base name to use for objects that need to
+	// include the name in their object names.
+	CertManagerBaseName string = "cert-manager"
+
+	// CertManagerDeploymentNamespace is the namespace that is used to deploy
+	// namespaced resources (e.g. serviceaccounts, roles) used by the cert-manager
+	// controllers.
+	CertManagerDeploymentNamespace string = CertManagerBaseName
+)
