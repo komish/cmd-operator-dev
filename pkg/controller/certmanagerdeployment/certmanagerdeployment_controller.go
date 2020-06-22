@@ -91,8 +91,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch deployments
+	// Watch Deployments
 	if err := c.Watch(&source.Kind{Type: &appsv1.Deployment{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
+		}); err != nil {
+		return err
+	}
+
+	// Watch Services
+	if err := c.Watch(&source.Kind{Type: &corev1.Service{}},
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
@@ -169,6 +178,11 @@ func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (r
 
 	if err = reconcileDeployments(r, instance, reqLogger.WithValues("Reconciling", "Deployments")); err != nil {
 		reqLogger.Error(err, "Encountered error reconciling Deployments")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileServices(r, instance, reqLogger.WithValues("Reconciling", "Services")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling Services")
 		return reconcile.Result{}, err
 	}
 
@@ -398,6 +412,37 @@ func reconcileDeployments(r *ReconcileCertManagerDeployment, instance *redhatv1a
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating Deployment", "Deployment.Namespace", dep.GetNamespace(), "Deployment.Name", dep.GetName())
 			if err := r.client.Create(context.TODO(), dep); err != nil {
+				return err
+			}
+		} else if err != nil {
+			// we had an error, but it was not a NotFound error.
+			return err
+		}
+	}
+
+	return nil
+}
+
+// reconcileServices will reconcile the Service resources for a given CertManagerDeployment CustomResource
+func reconcileServices(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: services")
+	defer reqLogger.Info("Ending reconciliation: services")
+
+	// Get Cluster Roles for CR
+	getter := ResourceGetter{CustomResource: *instance}
+	svcs := getter.GetServices()
+
+	// set controller reference on those objects
+	for _, svc := range svcs {
+		// we failed to set the controller reference so we return
+		if err := controllerutil.SetControllerReference(instance, svc, r.scheme); err != nil {
+			return err
+		}
+		found := &corev1.Service{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: svc.GetNamespace(), Name: svc.GetName()}, found)
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating Service", "Service.Namespace", svc.GetNamespace(), "Service.Name", svc.GetName())
+			if err := r.client.Create(context.TODO(), svc); err != nil {
 				return err
 			}
 		} else if err != nil {

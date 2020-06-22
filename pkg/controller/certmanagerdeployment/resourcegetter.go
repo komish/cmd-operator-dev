@@ -10,12 +10,6 @@ type ResourceGetter struct {
 	CustomResource redhatv1alpha1.CertManagerDeployment
 }
 
-// GetServices will return new services for the CR.
-func (r *ResourceGetter) GetServices() {
-	// TODO(): Implement Me!
-	return
-}
-
 //GetCustomResourceDefinitions will return new custom resource definitions for the CR.
 func (r *ResourceGetter) GetCustomResourceDefinitions() {
 	// TODO(): Implement Me!

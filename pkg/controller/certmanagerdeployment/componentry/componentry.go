@@ -40,6 +40,7 @@ type CertManagerComponent struct {
 	clusterRoles       []RoleData
 	roles              []RoleData
 	deployment         appsv1.DeploymentSpec
+	service            corev1.ServiceSpec
 }
 
 // GetName returns CertManagerComponent name in  lower case.
@@ -70,6 +71,11 @@ func (comp *CertManagerComponent) GetRoles() []RoleData {
 // GetDeployment returns the deployment spec that needs to be created for the CertManageComponent.
 func (comp *CertManagerComponent) GetDeployment() appsv1.DeploymentSpec {
 	return comp.deployment
+}
+
+// GetService returns the service spec that needs to be created for the CertManageComponent.
+func (comp *CertManagerComponent) GetService() corev1.ServiceSpec {
+	return comp.service
 }
 
 // GetBaseLabelSelector returns label selectors using metadatda available on the
@@ -154,6 +160,16 @@ func GetComponentForController() CertManagerComponent {
 				},
 			},
 		},
+		service: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Protocol:   corev1.ProtocolTCP,
+					Port:       9402,
+					TargetPort: intstr.FromInt(9402),
+				},
+			},
+			Type: corev1.ServiceTypeClusterIP,
+		},
 	}
 }
 
@@ -202,7 +218,7 @@ func GetComponentForCAInjector() CertManagerComponent {
 	}
 }
 
-// GetComponentForWebhook returns a CetManagerComponent containing
+// GetComponentForWebhook returns a CertManagerComponent containing
 // all the metadata necessary to deploy the subresources needed to run
 // the cert-manager webhook.
 func GetComponentForWebhook() CertManagerComponent {
@@ -272,6 +288,16 @@ func GetComponentForWebhook() CertManagerComponent {
 					},
 				},
 			},
+		},
+		service: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Protocol:   corev1.ProtocolTCP,
+					Port:       443,
+					TargetPort: intstr.FromInt(10250),
+				},
+			},
+			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
 }
