@@ -1,5 +1,12 @@
 // Package cmdoputils contains utility functions for the certmanagerdeployment-operator.
+// It should depend on as little as possible from the packages found in path
+// github.com/komish/certmangaer-operator/pkg/controller and further to prevent
+// cyclical imports errors.
 package cmdoputils
+
+import (
+	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
+)
 
 // MergeMaps will take two maps (dest, addition) and merge all keys/values from "addition"
 // into "dest". Keys from addition will supercede keys from "dest".
@@ -8,4 +15,30 @@ func MergeMaps(dest map[string]string, addition map[string]string) map[string]st
 		dest[k] = v
 	}
 	return dest
+}
+
+// CertManagerVersionIsSupported returns true if the version of CertManagerDeployment custom resource
+// is supported by this operator. An empty version field is always supported because it
+// allows the operator to pick.
+func CertManagerVersionIsSupported(cr *redhatv1alpha1.CertManagerDeployment, matrix map[string]bool) bool {
+	vers := cr.Spec.Version
+	// a nil version indicates that the CR didn't have Version set.
+	if vers == nil {
+		return true
+	}
+
+	_, ok := matrix[*vers]
+	return ok
+}
+
+// GetSupportedCertManagerVersions returns a list of the versions of cert-manager supported by the operator.
+// The supported versions are defined in
+// github.com/komish/certmanager-operator/pkg/controllers/certmanagerdeployment/componentry
+func GetSupportedCertManagerVersions(matrix map[string]bool) []string {
+	versions := make([]string, len(matrix))
+	for vers := range matrix {
+		versions = append(versions, vers)
+	}
+
+	return versions
 }

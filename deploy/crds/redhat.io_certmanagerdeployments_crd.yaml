@@ -55,6 +55,13 @@ spec:
               identifier:
                 description: Identifier is a string identifying a given CertManagerDeployment.
                 type: string
+              version:
+                description: Version indicates the version of CertManager to deploy.
+                  The operator only supports a subset of versions.
+                enum:
+                - v0.14.3
+                - v0.15.0
+                type: string
             required:
             - identifier
             type: object

@@ -23,13 +23,23 @@ var (
 		"app": "cert-manager",
 	}
 
+	// SupportedVersions represents the versions of Cert-Manager that are supported by the operator.
+	// The value is irrelevant. Only the keys are used for lookup.
+	//
+	// Changes to these values also need to be mirrored in the CertManageDeploymentSpec generation
+	// validation annotations.
+	SupportedVersions = map[string]bool{
+		"v0.14.3": true,
+		"v0.15.0": true,
+	}
+
 	// Components are all ComponentGetterFunctions, one per Component, that we need
 	// to deploy and manage as a part of a CertManagerDeployment.
 	Components = []ComponentGetterFunction{GetComponentForController, GetComponentForCAInjector, GetComponentForWebhook}
 )
 
 // ComponentGetterFunction is a function that will return a base CertManagerComponent.
-type ComponentGetterFunction func() CertManagerComponent
+type ComponentGetterFunction func(string) CertManagerComponent
 
 // CertManagerComponent represents the various components of cert-manager that might
 // be installed in a cluster.
@@ -99,188 +109,311 @@ func (comp *CertManagerComponent) GetResourceName() string {
 // GetComponentForController returns a CetManagerComponent containing
 // all the metadata necessary to deploy the subresources needed to run
 // the cert-manager controller.
-func GetComponentForController() CertManagerComponent {
-	return CertManagerComponent{
-		name:               "controller",
-		serviceAccountName: "cert-manager",
-		labels: cmdoputils.MergeMaps(map[string]string{
-			"app.kubernetes.io/component": "controller",
-			"app.kubernetes.io/name":      "controller",
-		}, StandardLabels),
-		clusterRoles: []RoleData{
-			clusterRoleDataForClusterIssuers,
-			clusterRoleDataForIssuers,
-			clusterRoleDataForChallenges,
-			clusterRoleDataForEdit,
-			clusterRoleDataForIngressShim,
-			clusterRoleDataForOrders,
-			clusterRoleDataForCertificates,
-			clusterRoleDataForView,
-		},
-		roles: []RoleData{roleForController},
-		deployment: appsv1.DeploymentSpec{
-			Replicas: &oneReplica,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"prometheus.io/path":   "/metrics",
-						"prometheus.io/port":   "9402",
-						"prometheus.io/scrape": "true",
+func GetComponentForController(version string) CertManagerComponent {
+	controllerMap := map[string]CertManagerComponent{
+		"v0.14.3": {
+			name:               "controller",
+			serviceAccountName: "cert-manager",
+			labels: cmdoputils.MergeMaps(map[string]string{
+				"app.kubernetes.io/component": "controller",
+				"app.kubernetes.io/name":      "controller",
+			}, StandardLabels),
+			clusterRoles: []RoleData{
+				clusterRoleDataForClusterIssuers,
+				clusterRoleDataForIssuers,
+				clusterRoleDataForChallenges,
+				clusterRoleDataForEdit,
+				clusterRoleDataForIngressShim,
+				clusterRoleDataForOrders,
+				clusterRoleDataForCertificates,
+				clusterRoleDataForView,
+			},
+			roles: []RoleData{roleForController},
+			deployment: appsv1.DeploymentSpec{
+				Replicas: &oneReplica,
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"prometheus.io/path":   "/metrics",
+							"prometheus.io/port":   "9402",
+							"prometheus.io/scrape": "true",
+						},
 					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "cert-manager",
-							Args: []string{
-								"--v=2",
-								"--cluster-resource-namespace=$(POD_NAMESPACE)",
-								"--leader-election-namespace=$(POD_NAMESPACE)",
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name: "POD_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "cert-manager",
+								Args: []string{
+									"--v=2",
+									"--cluster-resource-namespace=$(POD_NAMESPACE)",
+									"--leader-election-namespace=$(POD_NAMESPACE)",
+									"--webhook-namespace=$(POD_NAMESPACE)",
+									"--webhook-ca-secret=cert-manager-webhook-ca",
+									"--webhook-serving-secret=cert-manager-webhook-tls",
+									"--webhook-dns-names=cert-manager-webhook,cert-manager-webhook.cert-manager,cert-manager-webhook.cert-manager.svc",
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name: "POD_NAMESPACE",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.namespace",
+											},
 										},
 									},
 								},
-							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v0.15.0",
-							ImagePullPolicy: "IfNotPresent",
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 9402,
-									Protocol:      corev1.ProtocolTCP,
+								Image:           "quay.io/jetstack/cert-manager-controller:v0.14.3",
+								ImagePullPolicy: "IfNotPresent",
+								Ports: []corev1.ContainerPort{
+									{
+										ContainerPort: 9402,
+										Protocol:      corev1.ProtocolTCP,
+									},
 								},
 							},
 						},
 					},
 				},
 			},
+			service: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Protocol:   corev1.ProtocolTCP,
+						Port:       9402,
+						TargetPort: intstr.FromInt(9402),
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
 		},
-		service: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Protocol:   corev1.ProtocolTCP,
-					Port:       9402,
-					TargetPort: intstr.FromInt(9402),
+		"v0.15.0": {
+			name:               "controller",
+			serviceAccountName: "cert-manager",
+			labels: cmdoputils.MergeMaps(map[string]string{
+				"app.kubernetes.io/component": "controller",
+				"app.kubernetes.io/name":      "controller",
+			}, StandardLabels),
+			clusterRoles: []RoleData{
+				clusterRoleDataForClusterIssuers,
+				clusterRoleDataForIssuers,
+				clusterRoleDataForChallenges,
+				clusterRoleDataForEdit,
+				clusterRoleDataForIngressShim,
+				clusterRoleDataForOrders,
+				clusterRoleDataForCertificates,
+				clusterRoleDataForView,
+			},
+			roles: []RoleData{roleForController},
+			deployment: appsv1.DeploymentSpec{
+				Replicas: &oneReplica,
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"prometheus.io/path":   "/metrics",
+							"prometheus.io/port":   "9402",
+							"prometheus.io/scrape": "true",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "cert-manager",
+								Args: []string{
+									"--v=2",
+									"--cluster-resource-namespace=$(POD_NAMESPACE)",
+									"--leader-election-namespace=$(POD_NAMESPACE)",
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name: "POD_NAMESPACE",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.namespace",
+											},
+										},
+									},
+								},
+								Image:           "quay.io/jetstack/cert-manager-controller:v0.15.0",
+								ImagePullPolicy: "IfNotPresent",
+								Ports: []corev1.ContainerPort{
+									{
+										ContainerPort: 9402,
+										Protocol:      corev1.ProtocolTCP,
+									},
+								},
+							},
+						},
+					},
 				},
 			},
-			Type: corev1.ServiceTypeClusterIP,
+			service: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Protocol:   corev1.ProtocolTCP,
+						Port:       9402,
+						TargetPort: intstr.FromInt(9402),
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
 		},
 	}
+
+	return controllerMap[version]
 }
 
 // GetComponentForCAInjector returns a CetManagerComponent containing
 // all the metadata necessary to deploy the subresources needed to run
 // the cert-manager cainjector.
-func GetComponentForCAInjector() CertManagerComponent {
-	return CertManagerComponent{
-		name:               "cainjector",
-		serviceAccountName: "cert-manager-cainjector",
-		labels: cmdoputils.MergeMaps(map[string]string{
-			"app.kubernetes.io/component": "cainjector",
-			"app.kubernetes.io/name":      "cainjector",
-		}, StandardLabels),
-		clusterRoles: []RoleData{clusterRoleDataForCAInjector},
-		roles:        []RoleData{roleForCAInjectorLeaderElection},
-		deployment: appsv1.DeploymentSpec{
-			Replicas: &oneReplica,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "cert-manager",
-							Args: []string{
-								"--v=2",
-								"--leader-election-namespace=$(POD_NAMESPACE)",
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name: "POD_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
+func GetComponentForCAInjector(version string) CertManagerComponent {
+	cainjectorMap := map[string]CertManagerComponent{
+		"v0.15.0": {
+			name:               "cainjector",
+			serviceAccountName: "cert-manager-cainjector",
+			labels: cmdoputils.MergeMaps(map[string]string{
+				"app.kubernetes.io/component": "cainjector",
+				"app.kubernetes.io/name":      "cainjector",
+			}, StandardLabels),
+			clusterRoles: []RoleData{clusterRoleDataForCAInjector},
+			roles:        []RoleData{roleForCAInjectorLeaderElection},
+			deployment: appsv1.DeploymentSpec{
+				Replicas: &oneReplica,
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "cert-manager",
+								Args: []string{
+									"--v=2",
+									"--leader-election-namespace=$(POD_NAMESPACE)",
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name: "POD_NAMESPACE",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.namespace",
+											},
 										},
 									},
 								},
+								Image:           "quay.io/jetstack/cert-manager-cainjector:v0.15.0",
+								ImagePullPolicy: "IfNotPresent",
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.15.0",
-							ImagePullPolicy: "IfNotPresent",
+						},
+					},
+				},
+			},
+		},
+		"v0.14.3": {
+			name:               "cainjector",
+			serviceAccountName: "cert-manager-cainjector",
+			labels: cmdoputils.MergeMaps(map[string]string{
+				"app.kubernetes.io/component": "cainjector",
+				"app.kubernetes.io/name":      "cainjector",
+			}, StandardLabels),
+			clusterRoles: []RoleData{clusterRoleDataForCAInjector},
+			roles:        []RoleData{roleForCAInjectorLeaderElection},
+			deployment: appsv1.DeploymentSpec{
+				Replicas: &oneReplica,
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "cert-manager",
+								Args: []string{
+									"--v=2",
+									"--leader-election-namespace=kube-system",
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name: "POD_NAMESPACE",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.namespace",
+											},
+										},
+									},
+								},
+								Image:           "quay.io/jetstack/cert-manager-cainjector:v0.14.3",
+								ImagePullPolicy: "IfNotPresent",
+							},
 						},
 					},
 				},
 			},
 		},
 	}
+	return cainjectorMap[version]
 }
 
 // GetComponentForWebhook returns a CertManagerComponent containing
 // all the metadata necessary to deploy the subresources needed to run
 // the cert-manager webhook.
-func GetComponentForWebhook() CertManagerComponent {
-	return CertManagerComponent{
-		name:               "webhook",
-		serviceAccountName: "cert-manager-webhook",
-		labels: cmdoputils.MergeMaps(map[string]string{
-			"app.kubernetes.io/component": "webhook",
-			"app.kubernetes.io/name":      "webhook",
-		}, StandardLabels),
-		clusterRoles: []RoleData{},
-		roles:        []RoleData{roleForWebhook},
-		deployment: appsv1.DeploymentSpec{
-			Replicas: &oneReplica,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "cert-manager",
-							Args: []string{
-								"--v=2",
-								"--secure-port=10250",
-								"--dynamic-serving-ca-secret-namespace=$(POD_NAMESPACE)",
-								"--dynamic-serving-ca-secret-name=cert-manager-webhook-ca",
-								"--dynamic-serving-dns-names=cert-manager-webhook,cert-manager-webhook.cert-manager,cert-manager-webhook.cert-manager.svc",
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name: "POD_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
+func GetComponentForWebhook(version string) CertManagerComponent {
+	webhookMap := map[string]CertManagerComponent{
+		"v0.15.0": {
+			name:               "webhook",
+			serviceAccountName: "cert-manager-webhook",
+			labels: cmdoputils.MergeMaps(map[string]string{
+				"app.kubernetes.io/component": "webhook",
+				"app.kubernetes.io/name":      "webhook",
+			}, StandardLabels),
+			clusterRoles: []RoleData{},
+			roles:        []RoleData{roleForWebhook},
+			deployment: appsv1.DeploymentSpec{
+				Replicas: &oneReplica,
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "cert-manager",
+								Args: []string{
+									"--v=2",
+									"--secure-port=10250",
+									"--dynamic-serving-ca-secret-namespace=$(POD_NAMESPACE)",
+									"--dynamic-serving-ca-secret-name=cert-manager-webhook-ca",
+									"--dynamic-serving-dns-names=cert-manager-webhook,cert-manager-webhook.cert-manager,cert-manager-webhook.cert-manager.svc",
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name: "POD_NAMESPACE",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.namespace",
+											},
 										},
 									},
 								},
-							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.0",
-							ImagePullPolicy: "IfNotPresent",
-							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/livez",
-										Port:   intstr.IntOrString{IntVal: 6080},
-										Scheme: corev1.URISchemeHTTP,
+								Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.0",
+								ImagePullPolicy: "IfNotPresent",
+								LivenessProbe: &corev1.Probe{
+									Handler: corev1.Handler{
+										HTTPGet: &corev1.HTTPGetAction{
+											Path:   "/livez",
+											Port:   intstr.IntOrString{IntVal: 6080},
+											Scheme: corev1.URISchemeHTTP,
+										},
+									},
+									InitialDelaySeconds: 60,
+									PeriodSeconds:       10,
+								},
+								Ports: []corev1.ContainerPort{
+									{
+										ContainerPort: 10250,
+										Name:          "https",
 									},
 								},
-								InitialDelaySeconds: 60,
-								PeriodSeconds:       10,
-							},
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 10250,
-									Name:          "https",
-								},
-							},
-							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/healthz",
-										Port:   intstr.IntOrString{IntVal: 6080},
-										Scheme: corev1.URISchemeHTTP,
+								ReadinessProbe: &corev1.Probe{
+									Handler: corev1.Handler{
+										HTTPGet: &corev1.HTTPGetAction{
+											Path:   "/healthz",
+											Port:   intstr.IntOrString{IntVal: 6080},
+											Scheme: corev1.URISchemeHTTP,
+										},
 									},
 								},
 							},
@@ -288,16 +421,95 @@ func GetComponentForWebhook() CertManagerComponent {
 					},
 				},
 			},
+			service: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Protocol:   corev1.ProtocolTCP,
+						Port:       443,
+						TargetPort: intstr.FromInt(10250),
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
 		},
-		service: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Protocol:   corev1.ProtocolTCP,
-					Port:       443,
-					TargetPort: intstr.FromInt(10250),
+		"v0.14.3": {
+			name:               "webhook",
+			serviceAccountName: "cert-manager-webhook",
+			labels: cmdoputils.MergeMaps(map[string]string{
+				"app.kubernetes.io/component": "webhook",
+				"app.kubernetes.io/name":      "webhook",
+			}, StandardLabels),
+			clusterRoles: []RoleData{},
+			roles:        []RoleData{roleForWebhook},
+			deployment: appsv1.DeploymentSpec{
+				Replicas: &oneReplica,
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "cert-manager",
+								Args: []string{
+									"--v=2",
+									"--secure-port=10250",
+									"--tls-cert-file=/certs/tls.crt",
+									"--tls-private-key-file=/certs/tls.key",
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name: "POD_NAMESPACE",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.namespace",
+											},
+										},
+									},
+								},
+								Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.0",
+								ImagePullPolicy: "IfNotPresent",
+								LivenessProbe: &corev1.Probe{
+									Handler: corev1.Handler{
+										HTTPGet: &corev1.HTTPGetAction{
+											Path:   "/livez",
+											Port:   intstr.IntOrString{IntVal: 6080},
+											Scheme: corev1.URISchemeHTTP,
+										},
+									},
+									InitialDelaySeconds: 60,
+									PeriodSeconds:       10,
+								},
+								Ports: []corev1.ContainerPort{
+									{
+										ContainerPort: 10250,
+										Name:          "https",
+									},
+								},
+								ReadinessProbe: &corev1.Probe{
+									Handler: corev1.Handler{
+										HTTPGet: &corev1.HTTPGetAction{
+											Path:   "/healthz",
+											Port:   intstr.IntOrString{IntVal: 6080},
+											Scheme: corev1.URISchemeHTTP,
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
-			Type: corev1.ServiceTypeClusterIP,
+			service: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Protocol:   corev1.ProtocolTCP,
+						Port:       443,
+						TargetPort: intstr.FromInt(10250),
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
 		},
 	}
+
+	return webhookMap[version]
 }

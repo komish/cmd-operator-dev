@@ -7,6 +7,11 @@ import (
 
 // CertManagerDeploymentSpec defines the desired state of CertManagerDeployment
 type CertManagerDeploymentSpec struct {
+	// Version indicates the version of CertManager to deploy. The operator only
+	// supports a subset of versions.
+	// +optional
+	// +kubebuilder:validation:Enum=v0.14.3;v0.15.0
+	Version *string `json:"version"`
 	// Identifier is a string identifying a given CertManagerDeployment.
 	Identifier string `json:"identifier"`
 	// +optional

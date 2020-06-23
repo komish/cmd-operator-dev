@@ -15,7 +15,7 @@ import (
 func (r *ResourceGetter) GetServices() []*corev1.Service {
 	var svcs []*corev1.Service
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc()
+		component := componentGetterFunc(*r.CustomResource.Spec.Version)
 		// Not all components have services. If a component has an uninitialized
 		// corev1.ServiceSpec, then we skip it here.
 		if !reflect.DeepEqual(component.GetService(), corev1.ServiceSpec{}) {

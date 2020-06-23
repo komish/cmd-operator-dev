@@ -2,9 +2,12 @@ package certmanagerdeployment
 
 import (
 	"context"
+	e "errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
+	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/cmdoputils"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -127,6 +130,7 @@ type ReconcileCertManagerDeployment struct {
 // and what is in the CertManagerDeployment.Spec
 func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info(fmt.Sprintf("Supported cert-manager versions: %s", cmdoputils.GetSupportedCertManagerVersions(componentry.SupportedVersions)))
 	reqLogger.Info("Reconciling CertManagerDeployment")
 	defer reqLogger.Info("Done Reconciling CertManagerDeployment")
 
@@ -142,6 +146,15 @@ func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (r
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// If the CR requests a version that is not supported by the operator, halt and don't requeue.
+	if !cmdoputils.CertManagerVersionIsSupported(instance, componentry.SupportedVersions) {
+		reqLogger.Error(e.New("UnsupportedOperandVersion"),
+			"the custom resource has defined an unsupported version of cert-manager",
+			"version", *instance.Spec.Version,
+		)
+		return reconcile.Result{}, nil
 	}
 
 	if err = reconcileNamespace(r, instance, reqLogger.WithValues("Reconciling", "Namespaces")); err != nil {

@@ -11,7 +11,7 @@ import (
 func (r *ResourceGetter) GetServiceAccounts() []*corev1.ServiceAccount {
 	var sas []*corev1.ServiceAccount
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc()
+		component := componentGetterFunc(*r.CustomResource.Spec.Version)
 		sa := newServiceAccount(component, r.CustomResource)
 		sas = append(sas, sa)
 	}

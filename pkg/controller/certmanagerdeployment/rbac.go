@@ -13,7 +13,7 @@ import (
 func (r *ResourceGetter) GetRoleBindings() []*rbacv1.RoleBinding {
 	var rbs []*rbacv1.RoleBinding
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc()
+		component := componentGetterFunc(*r.CustomResource.Spec.Version)
 		for _, role := range component.GetRoles() {
 			// need the role and the service account for the CR
 			role := newRole(component, role, r.CustomResource)
@@ -57,7 +57,7 @@ func newRoleBinding(comp componentry.CertManagerComponent, cr redhatv1alpha1.Cer
 func (r *ResourceGetter) GetRoles() []*rbacv1.Role {
 	var roles []*rbacv1.Role
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc()
+		component := componentGetterFunc(*r.CustomResource.Spec.Version)
 		for _, role := range component.GetRoles() {
 			roles = append(roles, newRole(component, role, r.CustomResource))
 		}
@@ -84,7 +84,7 @@ func newRole(comp componentry.CertManagerComponent, rd componentry.RoleData, cr 
 func (r *ResourceGetter) GetClusterRoles() []*rbacv1.ClusterRole {
 	var result []*rbacv1.ClusterRole
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc()
+		component := componentGetterFunc(*r.CustomResource.Spec.Version)
 		for _, clusterRole := range component.GetClusterRoles() {
 			result = append(result, newClusterRole(component, clusterRole, r.CustomResource))
 		}
@@ -108,7 +108,7 @@ func newClusterRole(comp componentry.CertManagerComponent, rd componentry.RoleDa
 func (r *ResourceGetter) GetClusterRoleBindings() []*rbacv1.ClusterRoleBinding {
 	var crbs []*rbacv1.ClusterRoleBinding
 	for _, compGetterFunc := range componentry.Components {
-		component := compGetterFunc()
+		component := compGetterFunc(*r.CustomResource.Spec.Version)
 		for _, clusterRole := range component.GetClusterRoles() {
 			if !clusterRole.IsAggregate() {
 				// only create bindings to non-aggregate cluster roles.
