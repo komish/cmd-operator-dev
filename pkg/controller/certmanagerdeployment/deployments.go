@@ -26,7 +26,9 @@ type DeploymentCustomizations struct {
 func (r *ResourceGetter) GetDeployments() []*appsv1.Deployment {
 	var deploys []*appsv1.Deployment
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(*r.CustomResource.Spec.Version)
+		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
+			r.CustomResource.Spec.Version,
+			componentry.CertManagerDefaultVersion))
 		deploys = append(deploys, newDeployment(component, r.CustomResource, r.GetDeploymentCustomizations(component)))
 	}
 

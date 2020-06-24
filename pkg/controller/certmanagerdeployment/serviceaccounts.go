@@ -2,6 +2,7 @@ package certmanagerdeployment
 
 import (
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
+	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/cmdoputils"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,7 +12,9 @@ import (
 func (r *ResourceGetter) GetServiceAccounts() []*corev1.ServiceAccount {
 	var sas []*corev1.ServiceAccount
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(*r.CustomResource.Spec.Version)
+		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
+			r.CustomResource.Spec.Version,
+			componentry.CertManagerDefaultVersion))
 		sa := newServiceAccount(component, r.CustomResource)
 		sas = append(sas, sa)
 	}

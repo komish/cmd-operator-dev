@@ -6,6 +6,7 @@ import (
 )
 
 // CertManagerDeploymentSpec defines the desired state of CertManagerDeployment
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
 type CertManagerDeploymentSpec struct {
 	// Version indicates the version of CertManager to deploy. The operator only
 	// supports a subset of versions.
