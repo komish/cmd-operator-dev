@@ -19,6 +19,7 @@ type DeploymentCustomizations struct {
 	// in the format /registry/container-image:tag
 	ContainerImage  string
 	ImagePullPolicy corev1.PullPolicy
+	ContainerArgs   *[]string
 }
 
 // GetDeployments returns Deployment objects for a given CertManagerDeployment
@@ -26,9 +27,11 @@ type DeploymentCustomizations struct {
 func (r *ResourceGetter) GetDeployments() []*appsv1.Deployment {
 	var deploys []*appsv1.Deployment
 	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
-			r.CustomResource.Spec.Version,
-			componentry.CertManagerDefaultVersion))
+		component := componentGetterFunc(
+			cmdoputils.CRVersionOrDefaultVersion(
+				r.CustomResource.Spec.Version,
+				componentry.CertManagerDefaultVersion),
+		)
 		deploys = append(deploys, newDeployment(component, r.CustomResource, r.GetDeploymentCustomizations(component)))
 	}
 
@@ -47,11 +50,18 @@ func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManage
 		dc.ContainerImage = imageOverrides[comp.GetName()]
 	}
 
-	// check if pull policy has been overridden
-	pullPolicyOverride := r.CustomResource.Spec.DangerZone.ImagePullPolicy
+	// check if pull policy has been overridden.
+	pullPolicyOverride := r.CustomResource.Spec.ImagePullPolicy
 	var emptyPullPolicy corev1.PullPolicy
 	if !reflect.DeepEqual(pullPolicyOverride, emptyPullPolicy) {
 		dc.ImagePullPolicy = pullPolicyOverride
+	}
+
+	// check if the container arguments are being overridden.
+	argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides
+	if !reflect.DeepEqual(imageOverrides, map[string][]string{}) {
+		args := argOverrides[comp.GetName()]
+		dc.ContainerArgs = &args
 	}
 
 	return dc
@@ -92,6 +102,11 @@ func newDeployment(comp componentry.CertManagerComponent, cr redhatv1alpha1.Cert
 	if cstm.ImagePullPolicy != "" {
 		deploy.Spec.Template.Spec.Containers[0].ImagePullPolicy = cstm.ImagePullPolicy
 	}
+
+	// If the CR containers customized arguments: override our deployment.
+	// if cstm.ContainerArgs != nil {
+	// 	deploy.Spec.Template.Spec.Containers[0].Args = *cstm.ContainerArgs
+	// }
 
 	return deploy
 }

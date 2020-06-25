@@ -20,7 +20,8 @@ var (
 
 	// StandardLabels are the base labels that apply to all CertManagerDeployment-managed resources.
 	StandardLabels = map[string]string{
-		"app": "cert-manager",
+		"app":                          "cert-manager",
+		"app.kubernetes.io/managed-by": "operator",
 	}
 
 	// SupportedVersions represents the versions of Cert-Manager that are supported by the operator.
@@ -31,6 +32,7 @@ var (
 	SupportedVersions = map[string]bool{
 		"v0.14.3": true,
 		"v0.15.0": true,
+		"v0.15.1": true,
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -111,7 +113,7 @@ func (comp *CertManagerComponent) getContainers() []corev1.Container {
 	return comp.deployment.Template.Spec.Containers
 }
 
-// GetComponentForController returns a CetManagerComponent containing
+// GetComponentForController returns a CertManagerComponent containing
 // all the metadata necessary to deploy the subresources needed to run
 // the cert-manager controller.
 func GetComponentForController(version string) CertManagerComponent {
@@ -164,7 +166,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v0.15.0",
+							Image:           "quay.io/jetstack/cert-manager-controller:v0.15.1",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -191,6 +193,11 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
+	case "v0.15.0":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
+			container.Image = "quay.io/jetstack/cert-manager-controller:v0.15.0"
+		}
 	case "v0.14.3":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
@@ -245,7 +252,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.15.0",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.15.1",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -255,6 +262,11 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
+	case "v0.15.0":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.15.0"
+		}
 	case "v0.14.3":
 		container := &comp.deployment.Template.Spec.Containers[0]
 		container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.14.3"
@@ -300,7 +312,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.0",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.1",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -348,6 +360,11 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
+	case "v0.15.0":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = "quay.io/jetstack/cert-manager-webhook:v0.15.0"
+		}
 	case "v0.14.3":
 		// make modifications to the current template for v0.14.3.
 		container := &comp.deployment.Template.Spec.Containers[0]

@@ -117,6 +117,21 @@ func (in *DangerZone) DeepCopyInto(out *DangerZone) {
 			(*out)[key] = val
 		}
 	}
+	if in.ContainerArgOverrides != nil {
+		in, out := &in.ContainerArgOverrides, &out.ContainerArgOverrides
+		*out = make(map[string][]string, len(*in))
+		for key, val := range *in {
+			var outVal []string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make([]string, len(*in))
+				copy(*out, *in)
+			}
+			(*out)[key] = outVal
+		}
+	}
 	return
 }
 

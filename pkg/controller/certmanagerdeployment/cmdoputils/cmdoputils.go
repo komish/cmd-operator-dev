@@ -47,8 +47,8 @@ func GetSupportedCertManagerVersions(matrix map[string]bool) []string {
 // a check for nil. If nil, it will return the default value def.
 func CRVersionOrDefaultVersion(cr *string, def string) string {
 	if cr != nil {
-		return def
+		return *cr
 	}
 
-	return *cr
+	return def
 }

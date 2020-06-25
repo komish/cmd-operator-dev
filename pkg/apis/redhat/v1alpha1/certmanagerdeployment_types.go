@@ -11,12 +11,18 @@ type CertManagerDeploymentSpec struct {
 	// Version indicates the version of CertManager to deploy. The operator only
 	// supports a subset of versions.
 	// +optional
-	// +kubebuilder:validation:Enum=v0.14.3;v0.15.0
+	// +kubebuilder:validation:Enum=v0.14.3;v0.15.0;v0.15.1
 	Version *string `json:"version"`
 	// Identifier is a string identifying a given CertManagerDeployment.
 	Identifier string `json:"identifier"`
+	// DangerZone contains a series of options that aren't necessarily accounted
+	// for by the operator, but can be configured in edge cases if needed.
 	// +optional
 	DangerZone DangerZone `json:"dangerZone,omitempty"`
+	// ImagePullPolicy is the policy to apply to all CertManagerComponent deployments.
+	// +kubebuilder:validation:Enum=Always;Never;IfNotPresent
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // DangerZone is a set of configuration options that may cause the stability
@@ -24,13 +30,16 @@ type CertManagerDeploymentSpec struct {
 // need to be tweaked.
 type DangerZone struct {
 	// ImageOverrides is a map of CertManagerComponent names to image strings
-	// in format /registry/image-name:tag
+	// in format /registry/image-name:tag. Valid keys are controller, webhook,
+	// and cainjector.
 	// +optional
 	ImageOverrides map[string]string `json:"imageOverrides,omitempty"`
-	// ImagePullPolicy is the policy to apply to all CertManagerComponent deployments.
-	// +kubebuilder:validation:Enum=Always;Never;IfNotPresent
+	// ContainerArgOverrides allows the full overriding of container arguments for
+	// each component. These arguments must holistically cover what's needed for
+	// the CertManagerComponent to run as it replaces the containers[].args key
+	// in its entirety.
 	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	ContainerArgOverrides map[string][]string `json:"containerArgOverrides,omitempty"`
 }
 
 // CertManagerDeploymentStatus defines the observed state of CertManagerDeployment

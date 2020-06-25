@@ -134,6 +134,18 @@ func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (r
 	reqLogger.Info("Reconciling CertManagerDeployment")
 	defer reqLogger.Info("Done Reconciling CertManagerDeployment")
 
+	// This is a temporary check to ensure that only a single instance of cert-manager is installed by the operator.
+	// This is an incomplete check because it's perfectly fine crossing namespace boundaries (i.e. you can have a
+	// certmanagerdeployment in another namespace with the right name and this would not prevent reconciliation
+	// from happening.
+	// This may need to be replaced down the line, e.g. when reconciliation requests come from objects that are not
+	// the CertManagerDeployment.
+	// TODO(): Improve this check.
+	if request.Name != "production" {
+		log.Info("Canceling Reconciliation. Only one CertManagerDeployment named production is allowed", "request name", request.Name)
+		return reconcile.Result{}, nil
+	}
+
 	// Fetch the CertManagerDeployment instance
 	instance := &redhatv1alpha1.CertManagerDeployment{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
@@ -157,14 +169,25 @@ func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (r
 		return reconcile.Result{}, nil
 	}
 
+	// At this point, we should be reconciling a supported version of cert-manager. Log the version
+	// associated with the reconciliation request.
+	reqLogger.Info(
+		fmt.Sprintf("Requested version of cert-manager: %s",
+			cmdoputils.CRVersionOrDefaultVersion(
+				instance.Spec.Version,
+				componentry.CertManagerDefaultVersion),
+		),
+	)
+
+	// Reconcile all components.
 	if err = reconcileNamespace(r, instance, reqLogger.WithValues("Reconciling", "Namespaces")); err != nil {
+		// TODO(?): Is the inclusion of the error here redundant? Should we log the actual error in the reconciler
+		// and then use a generic error here?
 		reqLogger.Error(err, "Encountered error reconciling Namespace")
 		return reconcile.Result{}, err
 	}
 
 	if err = reconcileServiceAccounts(r, instance, reqLogger.WithValues("Reconciling", "ServiceAccounts")); err != nil {
-		// TODO(?): Is the inclusion of the error here redundant? Shoudl we log the actual error in the reconciler
-		// and then use a generic error here?
 		reqLogger.Error(err, "Encountered error reconciling ServiceAccounts")
 		return reconcile.Result{}, err
 	}
