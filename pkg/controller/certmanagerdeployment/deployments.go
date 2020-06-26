@@ -57,11 +57,12 @@ func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManage
 		dc.ImagePullPolicy = pullPolicyOverride
 	}
 
-	// check if the container arguments are being overridden.
-	argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides
-	if !reflect.DeepEqual(imageOverrides, map[string][]string{}) {
-		args := argOverrides[comp.GetName()]
-		dc.ContainerArgs = &args
+	// check if the any container arguments are being overridden.
+	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides; argOverrides != nil {
+		// at least one component's container arg is overriden
+		if args := argOverrides[comp.GetName()]; args != nil {
+			dc.ContainerArgs = &args
+		}
 	}
 
 	return dc
@@ -104,9 +105,9 @@ func newDeployment(comp componentry.CertManagerComponent, cr redhatv1alpha1.Cert
 	}
 
 	// If the CR containers customized arguments: override our deployment.
-	// if cstm.ContainerArgs != nil {
-	// 	deploy.Spec.Template.Spec.Containers[0].Args = *cstm.ContainerArgs
-	// }
+	if cstm.ContainerArgs != nil {
+		deploy.Spec.Template.Spec.Containers[0].Args = *cstm.ContainerArgs
+	}
 
 	return deploy
 }

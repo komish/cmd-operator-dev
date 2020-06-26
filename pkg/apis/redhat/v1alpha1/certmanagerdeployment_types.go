@@ -38,6 +38,8 @@ type DangerZone struct {
 	// each component. These arguments must holistically cover what's needed for
 	// the CertManagerComponent to run as it replaces the containers[].args key
 	// in its entirety.
+	// Omitting this results in the default container arguments the operator has
+	// configured for each component.
 	// +optional
 	ContainerArgOverrides map[string][]string `json:"containerArgOverrides,omitempty"`
 }

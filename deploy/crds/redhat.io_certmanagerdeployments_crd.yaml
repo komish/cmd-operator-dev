@@ -33,9 +33,9 @@ spec:
             description: CertManagerDeploymentSpec defines the desired state of CertManagerDeployment
             properties:
               dangerZone:
-                description: DangerZone is a set of configuration options that may
-                  cause the stability or reliability of the controller to break, but
-                  are exposed in case they need to be tweaked.
+                description: DangerZone contains a series of options that aren't necessarily
+                  accounted for by the operator, but can be configured in edge cases
+                  if needed.
                 properties:
                   containerArgOverrides:
                     additionalProperties:
@@ -43,7 +43,9 @@ spec:
                         type: string
                       type: array
                     description: ContainerArgOverrides allows the full overriding
-                      of container arguments for each component.
+                      of container arguments for each component. These arguments must
+                      holistically cover what's needed for the CertManagerComponent
+                      to run as it replaces the containers[].args key in its entirety.
                     type: object
                   imageOverrides:
                     additionalProperties:
