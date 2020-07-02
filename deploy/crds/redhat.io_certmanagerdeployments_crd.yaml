@@ -46,6 +46,8 @@ spec:
                       of container arguments for each component. These arguments must
                       holistically cover what's needed for the CertManagerComponent
                       to run as it replaces the containers[].args key in its entirety.
+                      Omitting this results in the default container arguments the
+                      operator has configured for each component.
                     type: object
                   imageOverrides:
                     additionalProperties:

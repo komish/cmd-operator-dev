@@ -9,6 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -24,7 +26,17 @@ const (
 	certManagerDeploymentRestartLabel           string = "certmanagerdeployment.redhat.io/time-restarted"
 )
 
-var log = logf.Log.WithName("controller_podrefresher")
+var (
+	log = logf.Log.WithName("controller_podrefresher")
+
+	// Eventing helpers
+	refresh        = podRefresherEvent{reason: "PodRefresh", message: "Associated pods restarted as a cert-manager secret used by the object has changed."}
+	refreshFailure = podRefresherEvent{reason: "PodRefreshFailure", message: "Unable to restart pods associated with object due to an API error."}
+
+	// reconciliationCounter helps track reconciliation requests against a specific secret. Operator restarts should not cause certificate-dependent resources
+	// to restart, so we'll count times we've seen a secret get reconciled and start actually triggering restarts when we've seen a secret more than once.
+	reconciliationCounter = make(map[string]int)
+)
 
 // Add creates a new Pod Refresher Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -34,7 +46,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePodRefresher{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcilePodRefresher{client: mgr.GetClient(), scheme: mgr.GetScheme(), recorder: mgr.GetEventRecorderFor("controller_podrefresher")}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -61,8 +73,9 @@ var _ reconcile.Reconciler = &ReconcilePodRefresher{}
 type ReconcilePodRefresher struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client   client.Client
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
 }
 
 // refreshErrorData represents some metadata about an error encountered while trying to
@@ -74,12 +87,16 @@ type refreshErrorData struct {
 	errorMsg  string
 }
 
+type podRefresherEvent struct {
+	reason  string
+	message string
+}
+
 // Reconcile watches for secrets and if a secret is a certmanager secret, it checks for deployments, statefulsets,
 // and daemonsets that may be using the secret and triggers a re-rollout of those objects.
 func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling CertManager TLS Certificates")
-	defer reqLogger.Info("Done Reconciling CertManager TLS Certificates")
 
 	// Fetch secret in the cluster.
 	secret := &corev1.Secret{}
@@ -100,6 +117,12 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 	ants := secret.GetAnnotations()
 	if _, ok := ants[certManagerIssuerKindAnnotation]; !ok {
 		reqLogger.V(2).Info("Secret is not a cert-manager issued certificate. Disregarding.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+		return reconcile.Result{}, nil
+	}
+
+	// Hard stop if this is the first time we've seen this object.
+	if !shouldTriggerRefresh(request.NamespacedName) {
+		reqLogger.Info("First time seeing reconciliation request for object, skipping reconciliation for it.", "Request.NamespacedName", request.NamespacedName.String())
 		return reconcile.Result{}, nil
 	}
 
@@ -141,12 +164,14 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 		reqLogger.Info("Checking deployment for usage of certificate found in secret", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
 		if hasAllowRestartAnnotation(deploy.ObjectMeta) && usesSecret(secret, deploy.Spec.Template.Spec) {
+			r.recorder.Event(&deploy, corev1.EventTypeNormal, refresh.reason, refresh.message)
 			reqLogger.Info("Deployment makes use of secret and has opted-in. Initiating refresh", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace())
 			updatedDeploy := deploy.DeepCopy()
 			updatedDeploy.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
 			updatedDeploy.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
 			err := r.client.Update(context.TODO(), updatedDeploy)
 			if err != nil {
+				r.recorder.Event(&deploy, "Error", refreshFailure.reason, refreshFailure.message)
 				reqLogger.Error(err, "Unable to restart deployment.", "Deployment.Name", deploy.GetName())
 				refreshErrors = append(refreshErrors, refreshErrorData{kind: deploy.Kind, name: deploy.GetName(), namespace: deploy.GetNamespace(), errorMsg: err.Error()})
 				updateFailed = true
@@ -201,6 +226,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 		// return reconcile.Result{}, err // don't uncomment, see above.
 	}
 
+	reqLogger.Info("Done Reconciling CertManager TLS Certificates")
 	return reconcile.Result{}, nil
 }
 
@@ -237,4 +263,18 @@ func usesSecret(secret *corev1.Secret, podspec corev1.PodSpec) bool {
 	}
 	// We didn't find a volume from a secret that matched our input secret.
 	return false
+}
+
+// shouldTriggerRefresh will return true if this is not the first time the NamespacedName of the
+// object has been seen by the reconciler. This helps prevent a restart of the controller from
+// triggering refreshes of resources.
+func shouldTriggerRefresh(NamespacedName types.NamespacedName) bool {
+	_, ok := reconciliationCounter[NamespacedName.String()]
+	if !ok {
+		// If !ok, the value for this NamespacedName is zero so we increment
+		reconciliationCounter[NamespacedName.String()]++
+		return false
+	}
+
+	return true
 }
