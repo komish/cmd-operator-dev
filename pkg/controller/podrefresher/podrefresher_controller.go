@@ -65,6 +65,8 @@ type ReconcilePodRefresher struct {
 	scheme *runtime.Scheme
 }
 
+// refreshErrorData represents some metadata about an error encountered while trying to
+// refresh a deployment, statefulset, or daemonset.
 type refreshErrorData struct {
 	kind      string
 	name      string
@@ -72,7 +74,8 @@ type refreshErrorData struct {
 	errorMsg  string
 }
 
-// Reconcile ... TODO!
+// Reconcile watches for secrets and if a secret is a certmanager secret, it checks for deployments, statefulsets,
+// and daemonsets that may be using the secret and triggers a re-rollout of those objects.
 func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling CertManager TLS Certificates")
@@ -129,8 +132,11 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// Since we are not sending a requeue if a refresh fails, we log it instead.
 	refreshErrors := make([]refreshErrorData, 0)
 	var updateFailed bool
+
+	// Check deployments in the relevant namespace
 	for _, deploy := range deployList.Items {
 		reqLogger.Info("Checking deployment for usage of certificate found in secret", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
@@ -148,6 +154,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
+	// Check daemonsets in the relevant namespace
 	for _, dset := range dsetList.Items {
 		reqLogger.Info("Checking Daemonset for usage of certificate found in secret", "Secret", secret.GetName(), "Daemonset", dset.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
@@ -165,6 +172,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
+	// Check statefulsets in the relevant namespace
 	for _, sts := range stsList.Items {
 		reqLogger.Info("Checking Statefulset for usage of certificate found in secret", "Secret", secret.GetName(), "Statefulset", sts.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
@@ -186,7 +194,10 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 	// TODO(komish): This requeues if _any_ of the refreshes fail, but this would cause a successful deployment to
 	// be restarted continuously. Need to requeue but with only the failed deployment.
 	if updateFailed {
-		reqLogger.Info("A resource that opted-in to refreshes has failed to refresh but the request will not be requeued", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace(), "Refresh Failures", refreshErrors)
+		reqLogger.Info("Resource(s) that opted-in to refreshes have failed to refresh but the request will not be requeued",
+			"Secret.Name", secret.GetName(),
+			"Secret.Namespace", secret.GetNamespace(),
+			"Error Message", refreshErrors)
 		// return reconcile.Result{}, err // don't uncomment, see above.
 	}
 
