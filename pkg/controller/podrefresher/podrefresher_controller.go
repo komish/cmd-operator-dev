@@ -24,7 +24,7 @@ const (
 	certManagerDeploymentRestartLabel           string = "certmanagerdeployment.redhat.io/time-restarted"
 )
 
-var log = logf.Log.WithName("controller_pod_refresher")
+var log = logf.Log.WithName("controller_podrefresher")
 
 // Add creates a new Pod Refresher Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -65,10 +65,18 @@ type ReconcilePodRefresher struct {
 	scheme *runtime.Scheme
 }
 
+type refreshErrorData struct {
+	kind      string
+	name      string
+	namespace string
+	errorMsg  string
+}
+
 // Reconcile ... TODO!
 func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling CertManager TLS Certificates")
+	defer reqLogger.Info("Done Reconciling CertManager TLS Certificates")
 
 	// Fetch secret in the cluster.
 	secret := &corev1.Secret{}
@@ -95,6 +103,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 	reqLogger.Info("Secret is a cert-manager issued certificate.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 
 	// If Secret has been updated, try to find deployments in the same namespace that needs to be bounced.
+	reqLogger.Info("Looking for deployments in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 	deployList := appsv1.DeploymentList{}
 	err = r.client.List(context.TODO(), &deployList, &client.ListOptions{Namespace: secret.GetNamespace()})
 	if err != nil {
@@ -102,28 +111,83 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// If Secret has been updated, try to find daemonsets in the same namespace that needs to be bounced.
+	reqLogger.Info("Looking for daemonsets in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+	dsetList := appsv1.DaemonSetList{}
+	err = r.client.List(context.TODO(), &dsetList, &client.ListOptions{Namespace: secret.GetNamespace()})
+	if err != nil {
+		reqLogger.Error(err, "Error listing daemonsets", "request.Namespace", secret.GetNamespace())
+		return reconcile.Result{}, err
+	}
+
+	// If Secret has been updated, try to find statefulsets in the same namespace that needs to be bounced.
+	reqLogger.Info("Looking for statefulset in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+	stsList := appsv1.StatefulSetList{}
+	err = r.client.List(context.TODO(), &stsList, &client.ListOptions{Namespace: secret.GetNamespace()})
+	if err != nil {
+		reqLogger.Error(err, "Error listing statefulsets", "request.Namespace", secret.GetNamespace())
+		return reconcile.Result{}, err
+	}
+
+	refreshErrors := make([]refreshErrorData, 0)
 	var updateFailed bool
 	for _, deploy := range deployList.Items {
+		reqLogger.Info("Checking deployment for usage of certificate found in secret", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
 		if hasAllowRestartAnnotation(deploy.ObjectMeta) && usesSecret(secret, deploy.Spec.Template.Spec) {
-			reqLogger.Info("Deployment opted-in to pod refreshes due to cert-manager secret update", "Deployment.Name", deploy.GetName(), "Secret.Name", secret.GetName())
-			updatedDeploy := deploy.DeepCopy() // TODO(): do we need to do this?
+			reqLogger.Info("Deployment makes use of secret and has opted-in. Initiating refresh", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace())
+			updatedDeploy := deploy.DeepCopy()
 			updatedDeploy.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
 			updatedDeploy.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
 			err := r.client.Update(context.TODO(), updatedDeploy)
 			if err != nil {
 				reqLogger.Error(err, "Unable to restart deployment.", "Deployment.Name", deploy.GetName())
+				refreshErrors = append(refreshErrors, refreshErrorData{kind: deploy.Kind, name: deploy.GetName(), namespace: deploy.GetNamespace(), errorMsg: err.Error()})
 				updateFailed = true
 			}
 		}
 	}
 
-	// Updating one of the deployments failed, requeue
-	// TODO(komish): This requeues if _any_ of the deployments fail, but this would cause a successful deployment to
+	for _, dset := range dsetList.Items {
+		reqLogger.Info("Checking Daemonset for usage of certificate found in secret", "Secret", secret.GetName(), "Daemonset", dset.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
+		updatedAt := time.Now().Format("2006-1-2.1504")
+		if hasAllowRestartAnnotation(dset.ObjectMeta) && usesSecret(secret, dset.Spec.Template.Spec) {
+			reqLogger.Info("Daemonset makes use of secret and has opted-in. Initiating refresh", "Secret", secret.GetName(), "Daemonset", dset.GetName(), "Namespace", secret.GetNamespace())
+			updatedDset := dset.DeepCopy()
+			updatedDset.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
+			updatedDset.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
+			err := r.client.Update(context.TODO(), updatedDset)
+			if err != nil {
+				reqLogger.Error(err, "Unable to restart Daemonset.", "Daemonset.Name", dset.GetName())
+				refreshErrors = append(refreshErrors, refreshErrorData{kind: dset.Kind, name: dset.GetName(), namespace: dset.GetNamespace(), errorMsg: err.Error()})
+				updateFailed = true
+			}
+		}
+	}
+
+	for _, sts := range stsList.Items {
+		reqLogger.Info("Checking Statefulset for usage of certificate found in secret", "Secret", secret.GetName(), "Statefulset", sts.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
+		updatedAt := time.Now().Format("2006-1-2.1504")
+		if hasAllowRestartAnnotation(sts.ObjectMeta) && usesSecret(secret, sts.Spec.Template.Spec) {
+			reqLogger.Info("Statefulset makes use of secret and has opted-in. Initiating refresh", "Secret", secret.GetName(), "Statefulset", sts.GetName(), "Namespace", secret.GetNamespace())
+			updatedsts := sts.DeepCopy()
+			updatedsts.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
+			updatedsts.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
+			err := r.client.Update(context.TODO(), updatedsts)
+			if err != nil {
+				reqLogger.Error(err, "Unable to restart Statefulset.", "Statefulset.Name", sts.GetName())
+				refreshErrors = append(refreshErrors, refreshErrorData{kind: sts.Kind, name: sts.GetName(), namespace: sts.GetNamespace(), errorMsg: err.Error()})
+				updateFailed = true
+			}
+		}
+	}
+
+	// If updating anything failed
+	// TODO(komish): This requeues if _any_ of the refreshes fail, but this would cause a successful deployment to
 	// be restarted continuously. Need to requeue but with only the failed deployment.
 	if updateFailed {
-		reqLogger.Info("Requeuing due to inability to update a deployment associated with certmanager secret", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
-		return reconcile.Result{}, err
+		reqLogger.Info("A resource that opted-in to refreshes has failed to refresh but the request will not be requeued", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace(), "Refresh Failures", refreshErrors)
+		// return reconcile.Result{}, err // don't uncomment, see above.
 	}
 
 	return reconcile.Result{}, nil
