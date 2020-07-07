@@ -52,3 +52,8 @@ func CRVersionOrDefaultVersion(cr *string, def string) string {
 
 	return def
 }
+
+// GetStringPointer returns a string pointer to the input string
+func GetStringPointer(str string) *string {
+	return &str
+}

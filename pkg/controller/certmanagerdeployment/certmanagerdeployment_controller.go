@@ -9,6 +9,7 @@ import (
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/cmdoputils"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
+	adregv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -105,6 +106,24 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch Services
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
+		}); err != nil {
+		return err
+	}
+
+	// Watch MutatingWebhookConfigurations
+	if err := c.Watch(&source.Kind{Type: &adregv1beta1.MutatingWebhookConfiguration{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
+		}); err != nil {
+		return err
+	}
+
+	// Watch ValidatingWebhookConfigurations
+	if err := c.Watch(&source.Kind{Type: &adregv1beta1.ValidatingWebhookConfiguration{}},
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &redhatv1alpha1.CertManagerDeployment{},
@@ -219,6 +238,11 @@ func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (r
 
 	if err = reconcileServices(r, instance, reqLogger.WithValues("Reconciling", "Services")); err != nil {
 		reqLogger.Error(err, "Encountered error reconciling Services")
+		return reconcile.Result{}, err
+	}
+
+	if err = reconcileWebhooks(r, instance, reqLogger.WithValues("Reconciling", "Webhooks")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling Webhooks")
 		return reconcile.Result{}, err
 	}
 
@@ -487,5 +511,56 @@ func reconcileServices(r *ReconcileCertManagerDeployment, instance *redhatv1alph
 		}
 	}
 
+	return nil
+}
+
+// reconcileWebhooks will reconcile the Webhook resources for a given CertManagerDeployment CustomResource
+func reconcileWebhooks(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: webhooks")
+	defer reqLogger.Info("Ending reconciliation: webhooks")
+
+	// Get Webhooks for CR
+	getter := ResourceGetter{CustomResource: *instance}
+
+	mwhs := getter.GetMutatingWebhooks()
+
+	// set controller reference and reconcile MutatingWebhookConfigurations
+	for _, mwh := range mwhs {
+		if err := controllerutil.SetControllerReference(instance, mwh, r.scheme); err != nil {
+			// we failed to set the controller reference so we return
+			return err
+		}
+		found := &adregv1beta1.MutatingWebhookConfiguration{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: mwh.GetNamespace(), Name: mwh.GetName()}, found)
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating MutatingWebhookConfiguration", "MutatingWebhookConfiguration.Namespace", mwh.GetNamespace(), "MutatingWebhookConfiguration.Name", mwh.GetName())
+			if err := r.client.Create(context.TODO(), mwh); err != nil {
+				return err
+			}
+		} else if err != nil {
+			// we had an error, but it was not a NotFound error.
+			return err
+		}
+	}
+
+	vwhs := getter.GetValidatingWebhooks()
+	// set controller reference and reconcile ValidatingWebhookConfigurations
+	for _, vwh := range vwhs {
+		if err := controllerutil.SetControllerReference(instance, vwh, r.scheme); err != nil {
+			// we failed to set the controller reference so we return
+			return err
+		}
+		found := &adregv1beta1.MutatingWebhookConfiguration{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: vwh.GetNamespace(), Name: vwh.GetName()}, found)
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating ValidatingWebhookConfiguration", "ValidatingWebhookConfiguration.Namespace", vwh.GetNamespace(), "ValidatingWebhookConfiguration.Name", vwh.GetName())
+			if err := r.client.Create(context.TODO(), vwh); err != nil {
+				return err
+			}
+		} else if err != nil {
+			// we had an error, but it was not a NotFound error.
+			return err
+		}
+	}
 	return nil
 }

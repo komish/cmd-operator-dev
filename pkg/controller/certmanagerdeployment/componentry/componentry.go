@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/cmdoputils"
+	adregv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +54,7 @@ type CertManagerComponent struct {
 	roles              []RoleData
 	deployment         appsv1.DeploymentSpec
 	service            corev1.ServiceSpec
+	webhooks           []WebhookData
 }
 
 // GetName returns CertManagerComponent name in  lower case.
@@ -88,6 +90,11 @@ func (comp *CertManagerComponent) GetDeployment() appsv1.DeploymentSpec {
 // GetService returns the service spec that needs to be created for the CertManageComponent.
 func (comp *CertManagerComponent) GetService() corev1.ServiceSpec {
 	return comp.service
+}
+
+// GetWebhooks returns the webhooks that need to be created for the CertManagerComponent
+func (comp *CertManagerComponent) GetWebhooks() []WebhookData {
+	return comp.webhooks
 }
 
 // GetBaseLabelSelector returns label selectors using metadatda available on the
@@ -189,6 +196,7 @@ func GetComponentForController(version string) CertManagerComponent {
 			},
 			Type: corev1.ServiceTypeClusterIP,
 		},
+		webhooks: []WebhookData{},
 	}
 
 	// handle other supported versions
@@ -259,6 +267,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 				},
 			},
 		},
+		webhooks: []WebhookData{},
 	}
 
 	switch version {
@@ -278,6 +287,10 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 // all the metadata necessary to deploy the subresources needed to run
 // the cert-manager webhook.
 func GetComponentForWebhook(version string) CertManagerComponent {
+	// This is for use with webhook objects.
+	var failPolicy adregv1beta1.FailurePolicyType = "Fail"
+	var noneSideEffect adregv1beta1.SideEffectClass = "None"
+
 	comp := CertManagerComponent{
 		name:               "webhook",
 		serviceAccountName: "cert-manager-webhook",
@@ -356,6 +369,76 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 				},
 			},
 			Type: corev1.ServiceTypeClusterIP,
+		},
+		webhooks: []WebhookData{
+			{
+				name: "cert-manager-webhook",
+				annotations: map[string]string{
+					"cert-manager.io/inject-ca-from-secret": "cert-manager/cert-manager-webhook-ca",
+				},
+				mutatingWebhooks: []adregv1beta1.MutatingWebhook{
+					{
+						Name: "webhook.cert-manager.io",
+						ClientConfig: adregv1beta1.WebhookClientConfig{
+							Service: &adregv1beta1.ServiceReference{
+								Name: "cert-manager-webhook", // pull this from other resources?
+								// Namespace is pulled from CR
+								Path: cmdoputils.GetStringPointer("/mutate"),
+							},
+						},
+						FailurePolicy: &failPolicy,
+						SideEffects:   &noneSideEffect,
+						Rules: []adregv1beta1.RuleWithOperations{
+							{
+								Operations: []adregv1beta1.OperationType{adregv1beta1.Create, adregv1beta1.Update},
+								Rule: adregv1beta1.Rule{
+									Resources:   []string{"*/*"},
+									APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
+									APIVersions: []string{"v1alpha2", "v1alpha3"},
+								},
+							},
+						},
+					},
+				},
+				validatingWebhooks: []adregv1beta1.ValidatingWebhook{
+					{
+						Name: "webhook.cert-manager.io",
+						ClientConfig: adregv1beta1.WebhookClientConfig{
+							Service: &adregv1beta1.ServiceReference{
+								Name: "cert-manager-webhook", // pull this from other resources?
+								// namespace is set in a context where the CR exists.
+								Path: cmdoputils.GetStringPointer("/validate"),
+							},
+						},
+						FailurePolicy: &failPolicy,
+						SideEffects:   &noneSideEffect,
+						Rules: []adregv1beta1.RuleWithOperations{
+							{
+								Operations: []adregv1beta1.OperationType{adregv1beta1.Create, adregv1beta1.Update},
+								Rule: adregv1beta1.Rule{
+									APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
+									APIVersions: []string{"v1alpha2", "v1alpha3"},
+									Resources:   []string{"*/*"},
+								},
+							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "cert-manager.io/disable-validation",
+									Operator: metav1.LabelSelectorOpNotIn,
+									Values:   []string{"true"},
+								},
+								{
+									Key:      "name",
+									Operator: metav1.LabelSelectorOpNotIn,
+									Values:   []string{"cert-manager"},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
