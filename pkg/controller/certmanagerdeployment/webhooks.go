@@ -33,7 +33,7 @@ func (r *ResourceGetter) GetMutatingWebhooks() []*adregv1beta1.MutatingWebhookCo
 			}
 
 			for _, validateHook := range mutateHooks {
-				hooks = append(hooks, newMutatingWebhook(component, r.CustomResource, webhookData.GetName(), validateHook))
+				hooks = append(hooks, newMutatingWebhook(component, r.CustomResource, webhookData.GetName(), validateHook, webhookData.GetAnnotations()))
 			}
 		}
 
@@ -66,7 +66,7 @@ func (r *ResourceGetter) GetValidatingWebhooks() []*adregv1beta1.ValidatingWebho
 			}
 
 			for _, validateHook := range validateHooks {
-				hooks = append(hooks, newValidatingWebhook(component, r.CustomResource, webhookData.GetName(), validateHook))
+				hooks = append(hooks, newValidatingWebhook(component, r.CustomResource, webhookData.GetName(), validateHook, webhookData.GetAnnotations()))
 			}
 		}
 
@@ -78,13 +78,13 @@ func (r *ResourceGetter) GetValidatingWebhooks() []*adregv1beta1.ValidatingWebho
 // newMutatingWebhook returns a Webhook object for a given CertManagerComponent
 // and CertManagerDeployment CustomResource
 func newMutatingWebhook(comp componentry.CertManagerComponent, cr redhatv1alpha1.CertManagerDeployment,
-	webhookName string, webhookConfig adregv1beta1.MutatingWebhook) *adregv1beta1.MutatingWebhookConfiguration {
+	webhookName string, webhookConfig adregv1beta1.MutatingWebhook, annotations map[string]string) *adregv1beta1.MutatingWebhookConfiguration {
 	// get initial structure
 	hook := adregv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      webhookName,
-			Namespace: componentry.CertManagerDeploymentNamespace,
-			Labels:    cr.GetLabels(),
+			Name:        webhookName,
+			Labels:      cr.GetLabels(),
+			Annotations: annotations,
 		},
 		Webhooks: []adregv1beta1.MutatingWebhook{},
 	}
@@ -104,13 +104,13 @@ func newMutatingWebhook(comp componentry.CertManagerComponent, cr redhatv1alpha1
 // newValidatingWebhook returns a Webhook object for a given CertManagerComponent
 // and CertManagerDeployment CustomResource
 func newValidatingWebhook(comp componentry.CertManagerComponent, cr redhatv1alpha1.CertManagerDeployment,
-	webhookName string, webhookConfig adregv1beta1.ValidatingWebhook) *adregv1beta1.ValidatingWebhookConfiguration {
+	webhookName string, webhookConfig adregv1beta1.ValidatingWebhook, annotations map[string]string) *adregv1beta1.ValidatingWebhookConfiguration {
 	// get initial structure
 	hook := adregv1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      webhookName,
-			Namespace: componentry.CertManagerDeploymentNamespace,
-			Labels:    cr.GetLabels(),
+			Name:        webhookName,
+			Labels:      cr.GetLabels(),
+			Annotations: annotations,
 		},
 		Webhooks: []adregv1beta1.ValidatingWebhook{},
 	}

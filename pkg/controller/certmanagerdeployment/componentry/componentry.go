@@ -498,6 +498,11 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 				},
 			},
 		}
+
+		// this version's webhook has a different annotation than default supported
+		for _, hook := range comp.webhooks {
+			hook.annotations["cert-manager.io/inject-ca-from-secret"] = "cert-manager/cert-manager-webhook-tls"
+		}
 	}
 
 	return comp

@@ -4,6 +4,8 @@ import (
 	"context"
 	e "errors"
 	"fmt"
+	"os"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
@@ -25,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
 var log = logf.Log.WithName("controller_certmanagerdeployment")
@@ -149,6 +153,8 @@ type ReconcileCertManagerDeployment struct {
 // and what is in the CertManagerDeployment.Spec
 func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	wd, _ := os.Getwd() // DELETEME
+	reqLogger.Info("DEBUG!", "Current Working Directory", wd)
 	reqLogger.Info(fmt.Sprintf("Supported cert-manager versions: %s", cmdoputils.GetSupportedCertManagerVersions(componentry.SupportedVersions)))
 	reqLogger.Info("Reconciling CertManagerDeployment")
 	defer reqLogger.Info("Done Reconciling CertManagerDeployment")
@@ -199,6 +205,11 @@ func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (r
 	)
 
 	// Reconcile all components.
+	if err = reconcileCRDs(r, instance, reqLogger.WithValues("Reconciling", "CustomResourceDefinitions")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling Custom Resource Definitions.")
+		return reconcile.Result{}, err
+	}
+
 	if err = reconcileNamespace(r, instance, reqLogger.WithValues("Reconciling", "Namespaces")); err != nil {
 		// TODO(?): Is the inclusion of the error here redundant? Should we log the actual error in the reconciler
 		// and then use a generic error here?
@@ -531,9 +542,9 @@ func reconcileWebhooks(r *ReconcileCertManagerDeployment, instance *redhatv1alph
 			return err
 		}
 		found := &adregv1beta1.MutatingWebhookConfiguration{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: mwh.GetNamespace(), Name: mwh.GetName()}, found)
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: mwh.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating MutatingWebhookConfiguration", "MutatingWebhookConfiguration.Namespace", mwh.GetNamespace(), "MutatingWebhookConfiguration.Name", mwh.GetName())
+			reqLogger.Info("Creating MutatingWebhookConfiguration", "MutatingWebhookConfiguration.Name", mwh.GetName())
 			if err := r.client.Create(context.TODO(), mwh); err != nil {
 				return err
 			}
@@ -551,9 +562,9 @@ func reconcileWebhooks(r *ReconcileCertManagerDeployment, instance *redhatv1alph
 			return err
 		}
 		found := &adregv1beta1.MutatingWebhookConfiguration{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: vwh.GetNamespace(), Name: vwh.GetName()}, found)
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: vwh.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating ValidatingWebhookConfiguration", "ValidatingWebhookConfiguration.Namespace", vwh.GetNamespace(), "ValidatingWebhookConfiguration.Name", vwh.GetName())
+			reqLogger.Info("Creating ValidatingWebhookConfiguration", "ValidatingWebhookConfiguration.Name", vwh.GetName())
 			if err := r.client.Create(context.TODO(), vwh); err != nil {
 				return err
 			}
@@ -562,5 +573,48 @@ func reconcileWebhooks(r *ReconcileCertManagerDeployment, instance *redhatv1alph
 			return err
 		}
 	}
+	return nil
+}
+
+// reconcileCRDs will reconcile custom resource definitions for a given CertManagerDeployment CustomResource
+// These will not have ownership ownership and will not be removed on removal of the CertManagerDeployment resource.
+// TODO(komish): At some point we need to watch CustomResourceDefinitions
+func reconcileCRDs(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: CRDs")
+	defer reqLogger.Info("Ending reconciliation: CRDs")
+
+	// Get Webhooks for CR
+	getter := ResourceGetter{CustomResource: *instance}
+	crds, err := getter.GetCRDs()
+	if err != nil {
+		reqLogger.Error(err, "Failed to get CRDs")
+		// Something happened when trying to get CRDs for this reconciliation
+		return err
+	}
+
+	for _, crd := range crds {
+		found := &apiextv1beta1.CustomResourceDefinition{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.GetName()}, found)
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating CustomResourceDefinition", "CustomResourceDefinition.Name", crd.GetName)
+			if err := r.client.Create(context.TODO(), crd); err != nil {
+				return err
+			}
+		} else if err != nil {
+			// we had an error, but it was not a NotFound error.
+			return err
+		}
+
+		// we found an instance of the CRD already. Do the comparison and if they don't match, recreate.
+		if !reflect.DeepEqual(crd.Spec, found.Spec) {
+			reqLogger.Info("CustomResourceDefinition already exists, but needs an update. Updating.", "CustomResourceDefinition.Name", crd.GetName())
+			if err := r.client.Update(context.TODO(), crd); err != nil {
+				// some issue performing the update.
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
