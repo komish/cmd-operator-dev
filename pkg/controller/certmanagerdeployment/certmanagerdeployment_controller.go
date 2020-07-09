@@ -616,11 +616,15 @@ func reconcileCRDs(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.C
 
 			// modify the state of the old object to post to API
 			updated := found.DeepCopy()
+
 			if !specsMatch {
 				updated.Spec = crd.Spec
 			}
 
-			// TODO(): handle label/annotation updates.
+			if !lblsAndAnnotsMatch {
+				updated.ObjectMeta.Annotations = crd.GetAnnotations()
+				updated.ObjectMeta.Labels = crd.GetLabels()
+			}
 
 			if err := r.client.Update(context.TODO(), updated); err != nil {
 				// some issue performing the update.

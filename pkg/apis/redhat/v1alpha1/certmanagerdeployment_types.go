@@ -13,8 +13,6 @@ type CertManagerDeploymentSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=v0.14.3;v0.15.0;v0.15.1
 	Version *string `json:"version"`
-	// Identifier is a string identifying a given CertManagerDeployment.
-	Identifier string `json:"identifier"`
 	// DangerZone contains a series of options that aren't necessarily accounted
 	// for by the operator, but can be configured in edge cases if needed.
 	// +optional
@@ -46,9 +44,7 @@ type DangerZone struct {
 
 // CertManagerDeploymentStatus defines the observed state of CertManagerDeployment
 type CertManagerDeploymentStatus struct {
-	// DiscoveredIdentifier is the identifier used to initialize this resource
-	// at initial creation.
-	DiscoveredIdentifier string `json:"discoveredIdentifier"`
+	// TODO(): Implement
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
