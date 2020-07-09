@@ -57,9 +57,6 @@ spec:
                       are controller, webhook, and cainjector.
                     type: object
                 type: object
-              identifier:
-                description: Identifier is a string identifying a given CertManagerDeployment.
-                type: string
               imagePullPolicy:
                 description: ImagePullPolicy is the policy to apply to all CertManagerComponent
                   deployments.
@@ -76,19 +73,10 @@ spec:
                 - v0.15.0
                 - v0.15.1
                 type: string
-            required:
-            - identifier
             type: object
           status:
             description: CertManagerDeploymentStatus defines the observed state of
               CertManagerDeployment
-            properties:
-              discoveredIdentifier:
-                description: DiscoveredIdentifier is the identifier used to initialize
-                  this resource at initial creation.
-                type: string
-            required:
-            - discoveredIdentifier
             type: object
         type: object
     served: true

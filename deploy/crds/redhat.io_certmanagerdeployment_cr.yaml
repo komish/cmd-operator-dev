@@ -3,7 +3,6 @@ kind: CertManagerDeployment
 metadata:
   name: production
 spec:
-  identifier: "1234567890"
   version: "v0.15.0"
   # dangerZone:
   #   containerArgOverrides:
