@@ -4,7 +4,6 @@ import (
 	"context"
 	e "errors"
 	"fmt"
-	"os"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -153,8 +152,7 @@ type ReconcileCertManagerDeployment struct {
 // and what is in the CertManagerDeployment.Spec
 func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	wd, _ := os.Getwd() // DELETEME
-	reqLogger.Info("DEBUG!", "Current Working Directory", wd)
+
 	reqLogger.Info(fmt.Sprintf("Supported cert-manager versions: %s", cmdoputils.GetSupportedCertManagerVersions(componentry.SupportedVersions)))
 	reqLogger.Info("Reconciling CertManagerDeployment")
 	defer reqLogger.Info("Done Reconciling CertManagerDeployment")
@@ -580,10 +578,12 @@ func reconcileWebhooks(r *ReconcileCertManagerDeployment, instance *redhatv1alph
 // These will not have ownership ownership and will not be removed on removal of the CertManagerDeployment resource.
 // TODO(komish): At some point we need to watch CustomResourceDefinitions
 func reconcileCRDs(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+
 	reqLogger.Info("Starting reconciliation: CRDs")
 	defer reqLogger.Info("Ending reconciliation: CRDs")
 
 	// Get Webhooks for CR
+
 	getter := ResourceGetter{CustomResource: *instance}
 	crds, err := getter.GetCRDs()
 	if err != nil {
@@ -596,19 +596,33 @@ func reconcileCRDs(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.C
 		found := &apiextv1beta1.CustomResourceDefinition{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: crd.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating CustomResourceDefinition", "CustomResourceDefinition.Name", crd.GetName)
+			reqLogger.Info("Creating CustomResourceDefinition", "CustomResourceDefinition.Name", crd.GetName())
 			if err := r.client.Create(context.TODO(), crd); err != nil {
 				return err
 			}
+			continue // we created successfully, move on to the next crd.
 		} else if err != nil {
 			// we had an error, but it was not a NotFound error.
 			return err
 		}
 
 		// we found an instance of the CRD already. Do the comparison and if they don't match, recreate.
-		if !reflect.DeepEqual(crd.Spec, found.Spec) {
-			reqLogger.Info("CustomResourceDefinition already exists, but needs an update. Updating.", "CustomResourceDefinition.Name", crd.GetName())
-			if err := r.client.Update(context.TODO(), crd); err != nil {
+		// TODO(): possible to add a dry run? Make sure we can update all of them before we start updating any of them?
+		// Otherwise might need to consider adding a rollback.
+		specsMatch := reflect.DeepEqual(crd.Spec, found.Spec)
+		lblsAndAnnotsMatch := cmdoputils.LabelsAndAnnotationsMatch(crd, found)
+		if !(specsMatch && lblsAndAnnotsMatch) {
+			reqLogger.Info("CustomResourceDefinition already exists, but needs an update. Updating.", "CustomResourceDefinition.Name", crd.GetName(), "LabelsAndAnnotationsMatched", lblsAndAnnotsMatch, "SpecsMatch", specsMatch)
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+			if !specsMatch {
+				updated.Spec = crd.Spec
+			}
+
+			// TODO(): handle label/annotation updates.
+
+			if err := r.client.Update(context.TODO(), updated); err != nil {
 				// some issue performing the update.
 				return err
 			}

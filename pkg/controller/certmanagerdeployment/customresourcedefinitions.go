@@ -2,6 +2,7 @@ package certmanagerdeployment
 
 import (
 	"io/ioutil"
+
 	"os"
 	"strings"
 
@@ -28,13 +29,14 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1beta1.CustomResourceDefinition, e
 
 	// Get file paths for the requested version
 	crds, err := getCRDListForCertManagerVersion(version)
+
 	if err != nil {
 		return []*apiextv1beta1.CustomResourceDefinition{}, err
 	}
 
 	// Check that all files exist at the expected path.
-	if !allFilesExist(version, crds) {
-		return []*apiextv1beta1.CustomResourceDefinition{}, err
+	if ok, missing := allFilesExist(crds); !ok {
+		return []*apiextv1beta1.CustomResourceDefinition{}, errors.Newf("Unable to find CRDs for version %s. Missing %s.", version, missing)
 	}
 
 	// Attempt to deserialize them all to CRD
@@ -55,30 +57,36 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1beta1.CustomResourceDefinition, e
 func getCRDListForCertManagerVersion(version string) ([]string, error) {
 	switch version {
 	case "v0.15.0", "v0.15.1":
-		return []string{
+		return addPathPrefixToPathList(version, []string{
 			"cert-manager.io_issuers_crd.yaml",
 			"cert-manager.io_certificates_crd.yaml",
 			"cert-manager.io_certificaterequest_crd.yaml",
 			"cert-manager.io_clusterissuers_crd.yaml",
 			"acme.cert-manager.io_challenges_crd.yaml",
 			"acme.cert-manager.io_orders_crd.yaml",
-		}, nil
+		}), nil
+
+	// TODO(): IMPLEMENT Support v0.14.x by adding case matches
+	// case "v0.14.3":
+	// return
+	default:
+		// We should never hit this case because the operator should stop reconciliation well before this point
+		// if an unsupported version is requested.
+		return []string{}, errors.New("requested version is unsupported by this operator")
 	}
-	// TODO(): Support v0.14.x by adding case matches
-	return []string{}, nil
+
 }
 
-// allFilesExist returns true if the files exist on disk at the specified path. Expected input
-// is relative path, where pathPrefix is what precedes the filename and variable files contains a
-// list of filenames including the extension.
-func allFilesExist(pathPrefix string, files []string) bool {
+// allFilesExist returns true if the files exist on disk at the specified path.
+// Path format is typically vX.Y.Z/filename.yaml
+func allFilesExist(files []string) (bool, string) {
 	for _, file := range files {
-		path := strings.Join([]string{pathPrefix, file}, "/")
-		if _, err := os.Stat(path); err != nil {
-			return false
+
+		if _, err := os.Stat(file); err != nil {
+			return false, file
 		}
 	}
-	return true
+	return true, ""
 }
 
 // getCRDFromFile will read a CRD YAML file from disk and return the CRD as an object.
@@ -107,4 +115,20 @@ func getCRDFromFile(filePath string) (*apiextv1beta1.CustomResourceDefinition, e
 	}
 
 	return crd, nil
+}
+
+func addPathPrefixToPathList(pathPrefix string, paths []string) []string {
+	new := make([]string, 0)
+	for _, path := range paths {
+		new = append(new, strings.Join([]string{crdPathOrWD(), pathPrefix, path}, "/"))
+	}
+	return new
+}
+
+// crdPathOrWD returns the path where the CRDs should be found or the current working directory
+// for the binary.
+func crdPathOrWD() string {
+	// TODO(): handle this error
+	dir, _ := os.Getwd()
+	return dir
 }

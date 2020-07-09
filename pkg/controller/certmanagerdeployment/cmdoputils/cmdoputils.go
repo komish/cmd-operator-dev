@@ -1,11 +1,12 @@
 // Package cmdoputils contains utility functions for the certmanagerdeployment-operator.
 // It should depend on as little as possible from the packages found in path
-// github.com/komish/certmangaer-operator/pkg/controller and further to prevent
+// github.com/komish/certmanager-operator/pkg/controller and further to prevent
 // cyclical imports errors.
 package cmdoputils
 
 import (
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MergeMaps will take two maps (dest, addition) and merge all keys/values from "addition"
@@ -56,4 +57,41 @@ func CRVersionOrDefaultVersion(cr *string, def string) string {
 // GetStringPointer returns a string pointer to the input string
 func GetStringPointer(str string) *string {
 	return &str
+}
+
+// HasLabelOrAnnotationWithValue checks if the input map has the specified key with the specified value.
+// Can be used to facilitate updates on objects where certain labels and annotations need to be in place.
+func HasLabelOrAnnotationWithValue(in map[string]string, key, value string) bool {
+	if val, ok := in[key]; ok {
+		if val == value {
+			return true
+		}
+	}
+
+	return false
+}
+
+// LabelsAndAnnotationsMatch returns true if two objects that have ObjectMeta both have the same labels and annotations.
+// In this case, dest object must have the same labels and annotations as the src object so it should be assumed the dest
+// object might have more labels and annotations so long as it has the same ones as the src.
+func LabelsAndAnnotationsMatch(src, dest metav1.Object) bool {
+	lblsMatch := true
+	annotsMatch := true
+
+	dLabels, dAnnots := dest.GetLabels(), dest.GetAnnotations()
+	sLabels, sAnnots := src.GetLabels(), src.GetAnnotations()
+
+	for k, v := range sLabels {
+		if !HasLabelOrAnnotationWithValue(dLabels, k, v) {
+			lblsMatch = false
+		}
+	}
+
+	for k, v := range sAnnots {
+		if !HasLabelOrAnnotationWithValue(dAnnots, k, v) {
+			annotsMatch = false
+		}
+	}
+
+	return lblsMatch && annotsMatch
 }
