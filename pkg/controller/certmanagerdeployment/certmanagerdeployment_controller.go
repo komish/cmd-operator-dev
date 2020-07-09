@@ -559,7 +559,7 @@ func reconcileWebhooks(r *ReconcileCertManagerDeployment, instance *redhatv1alph
 			// we failed to set the controller reference so we return
 			return err
 		}
-		found := &adregv1beta1.MutatingWebhookConfiguration{}
+		found := &adregv1beta1.ValidatingWebhookConfiguration{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: vwh.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating ValidatingWebhookConfiguration", "ValidatingWebhookConfiguration.Name", vwh.GetName())
@@ -571,6 +571,7 @@ func reconcileWebhooks(r *ReconcileCertManagerDeployment, instance *redhatv1alph
 			return err
 		}
 	}
+
 	return nil
 }
 
