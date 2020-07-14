@@ -85,7 +85,7 @@ func newDeployment(comp componentry.CertManagerComponent, cr redhatv1alpha1.Cert
 
 	// add the label selectors for the base deployment
 	sel := comp.GetBaseLabelSelector()
-	sel = labels.AddLabelToSelector(sel, "app.kubernetes.io/instance", cr.Name)
+	sel = labels.AddLabelToSelector(sel, componentry.InstanceLabelKey, cr.Name)
 	deploy.Spec.Selector = sel
 
 	// TODO(): Should probably handle the below blank-assigned error in some way.

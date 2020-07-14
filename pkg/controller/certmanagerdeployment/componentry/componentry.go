@@ -25,6 +25,9 @@ var (
 		"app.kubernetes.io/managed-by": "operator",
 	}
 
+	// InstanceLabelKey is a basic label key used to associate an owner object's name to a resource using a label.
+	InstanceLabelKey = "app.kubernetes.io/instance"
+
 	// SupportedVersions represents the versions of Cert-Manager that are supported by the operator.
 	// The value is irrelevant. Only the keys are used for lookup.
 	//
@@ -70,6 +73,14 @@ func (comp *CertManagerComponent) GetServiceAccountName() string {
 // GetLabels returns a base set of labels expected to be used by the CertManagerComponent.
 func (comp *CertManagerComponent) GetLabels() map[string]string {
 	return comp.labels
+}
+
+// GetLabelsWithInstanceName will return the default labels for a given component as well the app.kubernetes.io/instance label
+// set with the provided name as the value.
+func (comp *CertManagerComponent) GetLabelsWithInstanceName(name string) map[string]string {
+	lbls := comp.GetLabels()
+	lbls[InstanceLabelKey] = name
+	return lbls
 }
 
 // GetClusterRoles returns all cluster roles that need to be created for the CertManagerComponent.

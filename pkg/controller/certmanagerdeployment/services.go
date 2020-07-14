@@ -41,7 +41,7 @@ func newService(comp componentry.CertManagerComponent, cr redhatv1alpha1.CertMan
 
 	// add the label selectors for the base deployment
 	sel := comp.GetBaseLabelSelector()
-	sel = labels.AddLabelToSelector(sel, "app.kubernetes.io/instance", cr.Name)
+	sel = labels.AddLabelToSelector(sel, componentry.InstanceLabelKey, cr.Name)
 	// TODO(komish): Probably need to handle this blank-assigned error at some point.
 	// Not handled currently because errors are not bubbling up from this function yet.
 	svc.Spec.Selector, _ = metav1.LabelSelectorAsMap(sel)

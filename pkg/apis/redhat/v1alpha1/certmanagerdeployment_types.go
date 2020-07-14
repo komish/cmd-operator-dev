@@ -44,7 +44,12 @@ type DangerZone struct {
 
 // CertManagerDeploymentStatus defines the observed state of CertManagerDeployment
 type CertManagerDeploymentStatus struct {
-	// TODO(): Implement
+	// Version is a status indicator showing the requested version of cert-manager deployed
+	// by this CertManagerDeployment custom resource.
+	Version string `json:"version,omitempty"`
+	// Phase is a status indicator showing the state of the object and all downstream resources
+	// it manages.
+	Phase string `json:"phase,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -14,6 +14,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,8 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
 var log = logf.Log.WithName("controller_certmanagerdeployment")
@@ -203,6 +202,11 @@ func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (r
 	)
 
 	// Reconcile all components.
+	if err = reconcileStatus(r, instance, reqLogger.WithValues("Reconciling", "Status")); err != nil {
+		reqLogger.Error(err, "Encountered error reconciling CertManagerDeployment status")
+		return reconcile.Result{}, err
+	}
+
 	if err = reconcileCRDs(r, instance, reqLogger.WithValues("Reconciling", "CustomResourceDefinitions")); err != nil {
 		reqLogger.Error(err, "Encountered error reconciling Custom Resource Definitions.")
 		return reconcile.Result{}, err
@@ -633,6 +637,77 @@ func reconcileCRDs(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.C
 			}
 		}
 
+	}
+
+	return nil
+}
+
+// reconcileStatus reconciles the status block of a CertManagerDeployment
+func reconcileStatus(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: status")
+	defer reqLogger.Info("Ending reconciliation: status")
+
+	status := getNewCertManagerDeploymentStatus()
+	obj := instance.DeepCopy()
+
+	// Reconcile Status.Version
+	// If we got here, then the reconciler didn't terminate the request earlier in reconciliation
+	// for being an unsupported version.
+	setVersionStatus(&status, cmdoputils.CRVersionOrDefaultVersion(instance.Spec.Version, componentry.CertManagerDefaultVersion))
+
+	// Reconcile Status.Phase
+	// depends on the state of downstream objects.
+	setPhaseStatus(&status, componentry.StatusPhasePending)
+
+	// A global evaluation of whether or not phase-impacting objects are ready. If any are false, we don't set phase to running.
+	allThingsAreReady := true
+
+	// Phase Check - Deployments
+	// list deployments that should be owned by this CR.
+	var deploys appsv1.DeploymentList
+	deployListOpts := []client.ListOption{
+		client.InNamespace(componentry.CertManagerDeploymentNamespace),
+		client.MatchingLabels(componentry.StandardLabels),
+	}
+
+	if err := r.client.List(context.TODO(), &deploys, deployListOpts...); err != nil {
+		reqLogger.Info("Unable to list deployments in installation namespace", "Namespace", componentry.CertManagerDeploymentNamespace)
+		return err
+	}
+
+	// check if deployments are ready by comparing desired counts to existing counts and states of those counts.
+	currentDeployState := deploymentState{count: len(deploys.Items)}
+	for _, deploy := range deploys.Items {
+		currentDeployState.availableMatchesReady = append(currentDeployState.availableMatchesReady, (deploy.Status.AvailableReplicas == deploy.Status.ReadyReplicas))
+		currentDeployState.readyMatchesDesired = append(currentDeployState.readyMatchesDesired, (*deploy.Spec.Replicas == deploy.Status.ReadyReplicas))
+	}
+
+	// add deployment ready state to readyStates for later evaluation
+	if !(currentDeployState.allAvailableAreReady() &&
+		currentDeployState.readyCountMatchesDesiredCount() &&
+		currentDeployState.deploymentCountMatchesCountOfStoredStates()) {
+		allThingsAreReady = false
+	}
+
+	// Phase Check - CRDs
+	// IMPLEMENT!
+
+	// Phase Check - Services
+	// IMPLEMENT!
+
+	// Phase Check - Final Eval
+	if allThingsAreReady {
+		status.Phase = componentry.StatusPhaseRunning
+	} else {
+		status.Phase = componentry.StatusPhaseProgressing
+	}
+
+	// Update the object with new status
+	obj.Status = status
+	reqLogger.Info(fmt.Sprintf("%s", obj.Status))
+	if err := r.client.Status().Update(context.TODO(), obj); err != nil {
+		reqLogger.Info("Error updating CertManagerDeployment's Status", "name", instance.GetName())
+		return err
 	}
 
 	return nil
