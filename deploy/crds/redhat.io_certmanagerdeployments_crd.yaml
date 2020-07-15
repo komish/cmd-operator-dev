@@ -11,7 +11,14 @@ spec:
     singular: certmanagerdeployment
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.version
+      name: Version
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CertManagerDeployment is the Schema for the certmanagerdeployments

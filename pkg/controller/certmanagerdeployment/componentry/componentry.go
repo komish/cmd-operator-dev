@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/kubernetes/pkg/util/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -27,6 +28,18 @@ var (
 
 	// InstanceLabelKey is a basic label key used to associate an owner object's name to a resource using a label.
 	InstanceLabelKey = "app.kubernetes.io/instance"
+
+	// StandardListOptions is a standardized set of filters to use to list components that should be managed
+	// by this operator. This is for use with cluster-scoped resource lists.
+	StandardListOptions = []client.ListOption{
+		client.MatchingLabels(StandardLabels),
+	}
+	// StandardListOptionsWithNamespace is a standardized set of filters to use to list components that should be managed
+	// by this operator. This is for use with namespace-scoped resource lists.
+	StandardListOptionsWithNamespace = []client.ListOption{
+		client.InNamespace(CertManagerDeploymentNamespace),
+		client.MatchingLabels(StandardLabels),
+	}
 
 	// SupportedVersions represents the versions of Cert-Manager that are supported by the operator.
 	// The value is irrelevant. Only the keys are used for lookup.

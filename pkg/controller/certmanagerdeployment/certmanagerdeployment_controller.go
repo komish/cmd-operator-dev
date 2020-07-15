@@ -647,53 +647,97 @@ func reconcileStatus(r *ReconcileCertManagerDeployment, instance *redhatv1alpha1
 	reqLogger.Info("Starting reconciliation: status")
 	defer reqLogger.Info("Ending reconciliation: status")
 
-	status := getNewCertManagerDeploymentStatus()
+	status := getUninitializedCertManagerDeploymentStatus()
 	obj := instance.DeepCopy()
+	getter := ResourceGetter{CustomResource: *instance}
 
 	// Reconcile Status.Version
 	// If we got here, then the reconciler didn't terminate the request earlier in reconciliation
 	// for being an unsupported version.
-	setVersionStatus(&status, cmdoputils.CRVersionOrDefaultVersion(instance.Spec.Version, componentry.CertManagerDefaultVersion))
+	status.Version = cmdoputils.CRVersionOrDefaultVersion(instance.Spec.Version, componentry.CertManagerDefaultVersion)
 
 	// Reconcile Status.Phase
 	// depends on the state of downstream objects.
-	setPhaseStatus(&status, componentry.StatusPhasePending)
 
 	// A global evaluation of whether or not phase-impacting objects are ready. If any are false, we don't set phase to running.
 	allThingsAreReady := true
 
 	// Phase Check - Deployments
-	// list deployments that should be owned by this CR.
-	var deploys appsv1.DeploymentList
-	deployListOpts := []client.ListOption{
-		client.InNamespace(componentry.CertManagerDeploymentNamespace),
-		client.MatchingLabels(componentry.StandardLabels),
+	// TODO(): at some point this phase needs to reflect that all things have been upgraded
+	// to the proper version of those resources based on the requested version of cert-manager.
+	expectedDeploys := getter.GetDeployments()
+	existingDeploys := make([]*appsv1.Deployment, 0)
+	for _, deploy := range expectedDeploys {
+		receiver := appsv1.Deployment{}
+		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, &receiver); err != nil {
+			if errors.IsNotFound(err) {
+				// do nothing if not found now.
+				continue
+			} else {
+				reqLogger.Info("Unable to get deployment from the APIServer.", "Deployment.Name", deploy.GetName(), "Deployment.Namespace", deploy.GetNamespace())
+				return err
+			}
+		}
+		existingDeploys = append(existingDeploys, &receiver)
 	}
 
-	if err := r.client.List(context.TODO(), &deploys, deployListOpts...); err != nil {
-		reqLogger.Info("Unable to list deployments in installation namespace", "Namespace", componentry.CertManagerDeploymentNamespace)
+	if len(expectedDeploys) != len(existingDeploys) {
+		// we didn't find the right number of deployments in the cluster
+		allThingsAreReady = false
+	} else {
+		// we found the right number of deployments in the cluster so we need to check state.
+		currentDeployState := getStateOfDeployments(existingDeploys)
+		if !(currentDeployState.allAvailableAreReady() && currentDeployState.readyCountMatchesDesiredCount() && currentDeployState.deploymentCountMatchesCountOfStoredStates()) {
+			allThingsAreReady = false
+		}
+	}
+	reqLogger.Info("************************", "allThingsAreReady", allThingsAreReady) // debug
+
+	// Phase Check - CRDs
+	// BOOKMARK
+	var crds apiextv1beta1.CustomResourceDefinitionList
+	if err := r.client.List(context.TODO(), &crds, componentry.StandardListOptions...); err != nil {
+		reqLogger.Info("Unable to list CRDs for request")
 		return err
 	}
 
-	// check if deployments are ready by comparing desired counts to existing counts and states of those counts.
-	currentDeployState := deploymentState{count: len(deploys.Items)}
-	for _, deploy := range deploys.Items {
-		currentDeployState.availableMatchesReady = append(currentDeployState.availableMatchesReady, (deploy.Status.AvailableReplicas == deploy.Status.ReadyReplicas))
-		currentDeployState.readyMatchesDesired = append(currentDeployState.readyMatchesDesired, (*deploy.Spec.Replicas == deploy.Status.ReadyReplicas))
-	}
-
-	// add deployment ready state to readyStates for later evaluation
-	if !(currentDeployState.allAvailableAreReady() &&
-		currentDeployState.readyCountMatchesDesiredCount() &&
-		currentDeployState.deploymentCountMatchesCountOfStoredStates()) {
+	// If we didn't get any CRDs back, we're not ready or we're not able to parse if we are ready effectively.
+	if len(crds.Items) == 0 {
 		allThingsAreReady = false
+		reqLogger.Info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", "allThingsAreReady", allThingsAreReady, "crds", crds.Items) // debug
+	} else {
+		currentCRDState := crdState{count: len(crds.Items)}
+		// check if CRDs are in an acceptable state by seeing if the APIServer has accepted the names and the Established condition
+		// on the CRD is true.
+		for _, crd := range crds.Items {
+			conditions := crd.Status.Conditions
+			for _, condition := range conditions {
+				// Look at conditions. If we find the condition we care about and the status of that condition is true, then
+				// we store that information. For all other conditions, or if the condition is missing, we report store false.
+				accepted, established := false, false
+				switch condition.Type {
+				case "Established":
+					if condition.Status == apiextv1beta1.ConditionTrue {
+						established = true
+					}
+				case "NamesAccepted":
+					if condition.Status == apiextv1beta1.ConditionTrue {
+						accepted = true
+					}
+				}
+
+				currentCRDState.crdIsEstablished = append(currentCRDState.crdIsEstablished, established)
+				currentCRDState.crdNameIsAccepted = append(currentCRDState.crdNameIsAccepted, accepted)
+			}
+		}
+
+		// If any of these states fail, we can't mark phase as running.
+		if !(currentCRDState.allAreEstablished() &&
+			currentCRDState.allNamesAreAccepted() &&
+			currentCRDState.crdCountMatchesCountOfStoredStates()) {
+			allThingsAreReady = false
+		}
 	}
-
-	// Phase Check - CRDs
-	// IMPLEMENT!
-
-	// Phase Check - Services
-	// IMPLEMENT!
 
 	// Phase Check - Final Eval
 	if allThingsAreReady {

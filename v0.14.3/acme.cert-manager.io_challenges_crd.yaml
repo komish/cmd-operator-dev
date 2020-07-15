@@ -4,6 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from-secret: cert-manager/cert-manager-webhook-tls
   name: challenges.acme.cert-manager.io
+  labels:
+    app: cert-manager
+    app.kubernetes.io/managed-by: operator
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.state

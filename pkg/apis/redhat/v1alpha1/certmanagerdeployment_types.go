@@ -6,7 +6,6 @@ import (
 )
 
 // CertManagerDeploymentSpec defines the desired state of CertManagerDeployment
-// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
 type CertManagerDeploymentSpec struct {
 	// Version indicates the version of CertManager to deploy. The operator only
 	// supports a subset of versions.
@@ -58,6 +57,8 @@ type CertManagerDeploymentStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=certmanagerdeployments,scope=Cluster
 // +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 type CertManagerDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
