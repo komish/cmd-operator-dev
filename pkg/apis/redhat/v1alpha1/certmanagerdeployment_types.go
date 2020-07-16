@@ -49,6 +49,12 @@ type CertManagerDeploymentStatus struct {
 	// Phase is a status indicator showing the state of the object and all downstream resources
 	// it manages.
 	Phase string `json:"phase,omitempty"`
+	// ManagedDeploymentPhase is a status indicator showing the state of the deployments managed by
+	// this custom resource.
+	DeploymentsHealthy bool `json:"deploymentsHealthy,omitEmpty"`
+	// ManagedCRDPhase is a status indicator showing the state of CRDs managed by this
+	// custom resource.
+	CRDsHealthy bool `json:"crdsHealthy,omitEmpty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -59,6 +65,8 @@ type CertManagerDeploymentStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="DeploymentsAreHealthy",type=string,JSONPath=`.status.deploymentsHealthy`
+// +kubebuilder:printcolumn:name="CRDsAreHealthy",type=string,JSONPath=`.status.crdsHealthy`
 type CertManagerDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

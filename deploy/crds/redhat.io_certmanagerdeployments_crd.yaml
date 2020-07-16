@@ -18,6 +18,12 @@ spec:
     - jsonPath: .status.phase
       name: Phase
       type: string
+    - jsonPath: .status.deploymentsHealthy
+      name: DeploymentsAreHealthy
+      type: string
+    - jsonPath: .status.crdsHealthy
+      name: CRDsAreHealthy
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -85,6 +91,14 @@ spec:
             description: CertManagerDeploymentStatus defines the observed state of
               CertManagerDeployment
             properties:
+              crdsHealthy:
+                description: ManagedCRDPhase is a status indicator showing the state
+                  of CRDs managed by this custom resource.
+                type: boolean
+              deploymentsHealthy:
+                description: ManagedDeploymentPhase is a status indicator showing
+                  the state of the deployments managed by this custom resource.
+                type: boolean
               phase:
                 description: Phase is a status indicator showing the state of the
                   object and all downstream resources it manages.
@@ -93,6 +107,9 @@ spec:
                 description: Version is a status indicator showing the requested version
                   of cert-manager deployed by this CertManagerDeployment custom resource.
                 type: string
+            required:
+            - crdsHealthy
+            - deploymentsHealthy
             type: object
         type: object
     served: true
