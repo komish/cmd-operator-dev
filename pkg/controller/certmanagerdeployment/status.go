@@ -2,6 +2,7 @@ package certmanagerdeployment
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
@@ -185,6 +186,9 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusDeploymentsHealthy(
 		inStatus.DeploymentsHealthy = deploymentsAreReady(existingDeploys)
 	}
 
+	// bubble up deployment conditions to the CR.
+	updateStatusDeploymentConditions(inStatus, existingDeploys)
+
 	return inStatus
 }
 
@@ -204,6 +208,9 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusCRDsHealthy(
 	if ok {
 		inStatus.CRDsHealthy = crdsAreReady(existingCRDs)
 	}
+
+	// bubble up crd conditions to the CR
+	updateStatusCRDConditions(inStatus, existingCRDs)
 
 	return inStatus
 }
@@ -289,5 +296,40 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusPhase(inStatus *redhatv1
 	return inStatus
 }
 
-// func reconcileStatusDeploymentConditions() {}
-// func reconcileStatusCRDConditions() {}
+// updateStatusDeploymentConditions adds the conditions associated with found managed deployments to the status block for the CertManagerDeployment.
+// This is an overwrite action and only stores conditions that are found in the API server. Deployments that are not in the APIServer when this is
+// executed will not be stored, regardless of whether they should exist. This can indicate an issue reaching a running phase for the CertManagerDeployment.
+func updateStatusDeploymentConditions(inStatus *redhatv1alpha1.CertManagerDeploymentStatus, existingDeploys []*appsv1.Deployment) *redhatv1alpha1.CertManagerDeploymentStatus {
+	conditions := make([]redhatv1alpha1.ManagedDeploymentWithConditions, 0)
+	for _, deploy := range existingDeploys {
+		// we could use a NamespacedName struct here but there's no need at the moment, we just want the format.
+		// so the user knows what exactly is being stored here.
+		deployCondition := redhatv1alpha1.ManagedDeploymentWithConditions{
+			NamespacedName: fmt.Sprintf("%s%c%s", deploy.GetNamespace(), '/', deploy.GetName()),
+			Conditions:     deploy.Status.Conditions,
+		}
+
+		conditions = append(conditions, deployCondition)
+	}
+
+	inStatus.DeploymentConditions = conditions
+	return inStatus
+}
+
+// updateStatusCRDConditions adds the conditions associated with found managed CRDs to the status block for the CertManagerDeployment.
+// This is an overwrite action and only stores conditions that are found in the API server. CRDs that are not in the APIServer when this is
+// executed will not be stored, regardless of whether they should exist. This can indicate an issue reaching a running phase for the CertManagerDeployment.
+func updateStatusCRDConditions(inStatus *redhatv1alpha1.CertManagerDeploymentStatus, existingCRDs []*apiextv1beta1.CustomResourceDefinition) *redhatv1alpha1.CertManagerDeploymentStatus {
+	conditions := make([]redhatv1alpha1.ManagedCRDWithConditions, 0)
+	for _, crd := range existingCRDs {
+		crdCondition := redhatv1alpha1.ManagedCRDWithConditions{
+			Name:       crd.GetName(),
+			Conditions: crd.Status.Conditions,
+		}
+
+		conditions = append(conditions, crdCondition)
+	}
+
+	inStatus.CRDConditions = conditions
+	return inStatus
+}

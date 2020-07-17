@@ -91,13 +91,112 @@ spec:
             description: CertManagerDeploymentStatus defines the observed state of
               CertManagerDeployment
             properties:
+              crdConditions:
+                description: CRDConditions is a report of conditions on owned CRDs
+                  by this CertManagerDeployment.
+                items:
+                  description: ManagedCRDWithConditions defines a deployment name
+                    and conditions associated with that CRD.
+                  properties:
+                    conditions:
+                      description: Conditions is the DeploymentConditions associated
+                        with that deployment.
+                      items:
+                        description: CustomResourceDefinitionCondition contains details
+                          for the current condition of this pod.
+                        properties:
+                          lastTransitionTime:
+                            description: lastTransitionTime last time the condition
+                              transitioned from one status to another.
+                            format: date-time
+                            type: string
+                          message:
+                            description: message is a human-readable message indicating
+                              details about last transition.
+                            type: string
+                          reason:
+                            description: reason is a unique, one-word, CamelCase reason
+                              for the condition's last transition.
+                            type: string
+                          status:
+                            description: status is the status of the condition. Can
+                              be True, False, Unknown.
+                            type: string
+                          type:
+                            description: type is the type of the condition. Types
+                              include Established, NamesAccepted and Terminating.
+                            type: string
+                        required:
+                        - status
+                        - type
+                        type: object
+                      type: array
+                    name:
+                      description: Name is the name given to a specific CRD.
+                      type: string
+                  required:
+                  - conditions
+                  - name
+                  type: object
+                type: array
               crdsHealthy:
-                description: ManagedCRDPhase is a status indicator showing the state
-                  of CRDs managed by this custom resource.
+                description: CRDsHealthy is a status indicator showing the state of
+                  CRDs managed by this custom resource.
                 type: boolean
+              deploymentConditions:
+                description: DeploymentConditions is a report of conditions on owned
+                  deployments by this CertManagerDeployment.
+                items:
+                  description: ManagedDeploymentWithConditions defines a deployment
+                    namespaced name and conditions associated with that deployment.
+                  properties:
+                    conditions:
+                      description: Conditions is the DeploymentConditions associated
+                        with that deployment.
+                      items:
+                        description: DeploymentCondition describes the state of a
+                          deployment at a certain point.
+                        properties:
+                          lastTransitionTime:
+                            description: Last time the condition transitioned from
+                              one status to another.
+                            format: date-time
+                            type: string
+                          lastUpdateTime:
+                            description: The last time this condition was updated.
+                            format: date-time
+                            type: string
+                          message:
+                            description: A human readable message indicating details
+                              about the transition.
+                            type: string
+                          reason:
+                            description: The reason for the condition's last transition.
+                            type: string
+                          status:
+                            description: Status of the condition, one of True, False,
+                              Unknown.
+                            type: string
+                          type:
+                            description: Type of deployment condition.
+                            type: string
+                        required:
+                        - status
+                        - type
+                        type: object
+                      type: array
+                    namespacedName:
+                      description: NamespacedName is the NamespacedName of the given
+                        deployment.
+                      type: string
+                  required:
+                  - conditions
+                  - namespacedName
+                  type: object
+                type: array
               deploymentsHealthy:
-                description: ManagedDeploymentPhase is a status indicator showing
-                  the state of the deployments managed by this custom resource.
+                description: DeploymentsHealthy is a status indicator showing the
+                  state of the deployments managed by this custom resource.
                 type: boolean
               phase:
                 description: Phase is a status indicator showing the state of the
@@ -108,7 +207,9 @@ spec:
                   of cert-manager deployed by this CertManagerDeployment custom resource.
                 type: string
             required:
+            - crdConditions
             - crdsHealthy
+            - deploymentConditions
             - deploymentsHealthy
             type: object
         type: object

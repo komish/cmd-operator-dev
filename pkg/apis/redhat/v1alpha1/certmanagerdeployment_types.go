@@ -1,7 +1,9 @@
 package v1alpha1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,12 +51,32 @@ type CertManagerDeploymentStatus struct {
 	// Phase is a status indicator showing the state of the object and all downstream resources
 	// it manages.
 	Phase string `json:"phase,omitempty"`
-	// ManagedDeploymentPhase is a status indicator showing the state of the deployments managed by
+	// DeploymentsHealthy is a status indicator showing the state of the deployments managed by
 	// this custom resource.
 	DeploymentsHealthy bool `json:"deploymentsHealthy,omitEmpty"`
-	// ManagedCRDPhase is a status indicator showing the state of CRDs managed by this
+	// DeploymentConditions is a report of conditions on owned deployments by this CertManagerDeployment.
+	DeploymentConditions []ManagedDeploymentWithConditions `json:"deploymentConditions,omitEmpty"`
+	// CRDsHealthy is a status indicator showing the state of CRDs managed by this
 	// custom resource.
 	CRDsHealthy bool `json:"crdsHealthy,omitEmpty"`
+	// CRDConditions is a report of conditions on owned CRDs by this CertManagerDeployment.
+	CRDConditions []ManagedCRDWithConditions `json:"crdConditions,omitEmpty"`
+}
+
+// ManagedDeploymentWithConditions defines a deployment namespaced name and conditions associated with that deployment.
+type ManagedDeploymentWithConditions struct {
+	// NamespacedName is the NamespacedName of the given deployment.
+	NamespacedName string `json:"namespacedName"`
+	// Conditions is the DeploymentConditions associated with that deployment.
+	Conditions []appsv1.DeploymentCondition `json:"conditions"`
+}
+
+// ManagedCRDWithConditions defines a deployment name and conditions associated with that CRD.
+type ManagedCRDWithConditions struct {
+	// Name is the name given to a specific CRD.
+	Name string `json:"name"`
+	// Conditions is the DeploymentConditions associated with that deployment.
+	Conditions []apiextv1beta1.CustomResourceDefinitionCondition `json:"conditions"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

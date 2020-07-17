@@ -657,8 +657,6 @@ func (r *ReconcileCertManagerDeployment) ReconcileStatus(instance *redhatv1alpha
 	r.reconcileStatusDeploymentsHealthy(status, getter, reqLogger)
 	r.reconcileStatusCRDsHealthy(status, getter, reqLogger)
 	r.reconcileStatusPhase(status)
-	// reconcileStatusDeploymentConditions()
-	// reconcileStatusCRDConditions()
 
 	// Update the object with new status
 	obj.Status = *status
