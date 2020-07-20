@@ -11,7 +11,7 @@ import (
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -112,7 +112,7 @@ func getUninitializedCertManagerDeploymentStatus() *redhatv1alpha1.CertManagerDe
 
 // deploymentsAreReady evaluates the status fields in existingDeploys, and return true
 // if all existingDeploys are in an acceptable state.
-func deploymentsAreReady(existingDeploys []*appsv1.Deployment) v1.ConditionStatus {
+func deploymentsAreReady(existingDeploys []*appsv1.Deployment) corev1.ConditionStatus {
 	state, ok := deploymentState{count: len(existingDeploys)}, false
 	for _, deploy := range existingDeploys {
 		state.availableMatchesReady = append(state.availableMatchesReady, (deploy.Status.AvailableReplicas == deploy.Status.ReadyReplicas))
@@ -126,12 +126,12 @@ func deploymentsAreReady(existingDeploys []*appsv1.Deployment) v1.ConditionStatu
 	}
 
 	// so much formatting to get this to work...
-	return v1.ConditionStatus(strings.Title(strconv.FormatBool(ok)))
+	return corev1.ConditionStatus(strings.Title(strconv.FormatBool(ok)))
 }
 
 // crdsAreReady evaluates the status fields in existingCRDs and returns true
 // if all existingCRDs are in an acceptable state.
-func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) v1.ConditionStatus {
+func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) corev1.ConditionStatus {
 	state, ok := crdState{count: len(existingCRDs)}, false
 	for _, crd := range existingCRDs {
 		// search specifically for conditions we care about - NamesAccepted and Established
@@ -160,7 +160,7 @@ func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) v1.Con
 		ok = true
 	}
 
-	return v1.ConditionStatus(strings.Title(strconv.FormatBool(ok)))
+	return corev1.ConditionStatus(strings.Title(strconv.FormatBool(ok)))
 }
 
 // reconcileStatusVersion is a subreconciliation function called by ReconcileStatus that injects the version
@@ -183,7 +183,7 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusDeploymentsHealthy(
 
 	deploymentHealthyCondition := redhatv1alpha1.CertManagerDeploymentCondition{
 		Type:    redhatv1alpha1.ConditionDeploymentsAreReady,
-		Status:  v1.ConditionUnknown,
+		Status:  corev1.ConditionUnknown,
 		Reason:  "AllDeploymentsHealthy",
 		Message: "Deployment available and ready pods matches desired.",
 	}
@@ -215,7 +215,7 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusCRDsHealthy(
 
 	condition := redhatv1alpha1.CertManagerDeploymentCondition{
 		Type:    redhatv1alpha1.ConditionCRDsAreReady,
-		Status:  v1.ConditionUnknown,
+		Status:  corev1.ConditionUnknown,
 		Reason:  "AllCRDsHealthy",
 		Message: "CRDs NamesAccepted and Established Conditions are true.",
 	}
@@ -313,11 +313,11 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusPhase(inStatus *redhatv1
 
 	// query for the conditions and parse the evaluative state
 	if condition, ok := cmap[redhatv1alpha1.ConditionCRDsAreReady]; ok {
-		if condition.Status == v1.ConditionUnknown || condition.Status == v1.ConditionFalse {
+		if condition.Status == corev1.ConditionUnknown || condition.Status == corev1.ConditionFalse {
 			// for this check, we'll evaluate unknown as false so that we force the CR to reflect
 			// a pending status
 			crdsHealthy = false
-		} else if condition.Status == v1.ConditionTrue {
+		} else if condition.Status == corev1.ConditionTrue {
 			// only other options.
 			crdsHealthy = true
 		}
@@ -330,11 +330,11 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusPhase(inStatus *redhatv1
 	if condition, ok := cmap[redhatv1alpha1.ConditionDeploymentsAreReady]; ok {
 		l.Println("------------------------------", "1")
 		l.Println("------------------------------", condition.Status)
-		if condition.Status == v1.ConditionUnknown || condition.Status == v1.ConditionFalse {
+		if condition.Status == corev1.ConditionUnknown || condition.Status == corev1.ConditionFalse {
 			// for this check, we'll evaluate unknown as false so that we force the CR to reflect
 			// a pending status
 			deploymentsHealthy = false
-		} else if condition.Status == v1.ConditionTrue {
+		} else if condition.Status == corev1.ConditionTrue {
 			l.Println("------------------------------", "2")
 			// only other options.
 			deploymentsHealthy = true
