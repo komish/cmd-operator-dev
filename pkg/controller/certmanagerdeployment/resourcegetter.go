@@ -9,15 +9,3 @@ import (
 type ResourceGetter struct {
 	CustomResource redhatv1alpha1.CertManagerDeployment
 }
-
-//GetCustomResourceDefinitions will return new custom resource definitions for the CR.
-func (r *ResourceGetter) GetCustomResourceDefinitions() {
-	// TODO(): Implement Me!
-	return
-}
-
-// GetWebhookConfigurations will return new webhooks for the CR.
-func (r *ResourceGetter) GetWebhookConfigurations() {
-	// TODO(): Implement Me!
-	return
-}

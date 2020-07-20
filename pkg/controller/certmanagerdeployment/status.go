@@ -3,11 +3,15 @@ package certmanagerdeployment
 import (
 	"context"
 	"fmt"
+	l "log"
+	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -100,16 +104,15 @@ func (cs *crdState) crdCountMatchesCountOfStoredStates() bool {
 // to be modified and added to the API.
 func getUninitializedCertManagerDeploymentStatus() *redhatv1alpha1.CertManagerDeploymentStatus {
 	return &redhatv1alpha1.CertManagerDeploymentStatus{
-		Version:            "unknown",
-		Phase:              "unknown",
-		DeploymentsHealthy: false,
-		CRDsHealthy:        false,
+		Version:    "unknown",
+		Phase:      "unknown",
+		Conditions: []redhatv1alpha1.CertManagerDeploymentCondition{},
 	}
 }
 
 // deploymentsAreReady evaluates the status fields in existingDeploys, and return true
 // if all existingDeploys are in an acceptable state.
-func deploymentsAreReady(existingDeploys []*appsv1.Deployment) bool {
+func deploymentsAreReady(existingDeploys []*appsv1.Deployment) v1.ConditionStatus {
 	state, ok := deploymentState{count: len(existingDeploys)}, false
 	for _, deploy := range existingDeploys {
 		state.availableMatchesReady = append(state.availableMatchesReady, (deploy.Status.AvailableReplicas == deploy.Status.ReadyReplicas))
@@ -122,12 +125,13 @@ func deploymentsAreReady(existingDeploys []*appsv1.Deployment) bool {
 		ok = true
 	}
 
-	return ok
+	// so much formatting to get this to work...
+	return v1.ConditionStatus(strings.Title(strconv.FormatBool(ok)))
 }
 
 // crdsAreReady evaluates the status fields in existingCRDs and returns true
 // if all existingCRDs are in an acceptable state.
-func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) bool {
+func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) v1.ConditionStatus {
 	state, ok := crdState{count: len(existingCRDs)}, false
 	for _, crd := range existingCRDs {
 		// search specifically for conditions we care about - NamesAccepted and Established
@@ -156,7 +160,7 @@ func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) bool {
 		ok = true
 	}
 
-	return ok
+	return v1.ConditionStatus(strings.Title(strconv.FormatBool(ok)))
 }
 
 // reconcileStatusVersion is a subreconciliation function called by ReconcileStatus that injects the version
@@ -177,14 +181,23 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusDeploymentsHealthy(
 	rg ResourceGetter,
 	reqLogger logr.Logger) *redhatv1alpha1.CertManagerDeploymentStatus {
 
+	deploymentHealthyCondition := redhatv1alpha1.CertManagerDeploymentCondition{
+		Type:    redhatv1alpha1.ConditionDeploymentsAreReady,
+		Status:  v1.ConditionUnknown,
+		Reason:  "AllDeploymentsHealthy",
+		Message: "Deployment available and ready pods matches desired.",
+	}
+
 	existingDeploys, ok := queryAPIForExpectedDeployments(r.client, rg, reqLogger)
 	if existingDeploys == nil {
 		reqLogger.Info("unable to determine status of expected deployments for this instance")
 	}
 
 	if ok {
-		inStatus.DeploymentsHealthy = deploymentsAreReady(existingDeploys)
+		deploymentHealthyCondition.Status = deploymentsAreReady(existingDeploys)
 	}
+
+	inStatus.Conditions = append(inStatus.Conditions, deploymentHealthyCondition)
 
 	// bubble up deployment conditions to the CR.
 	updateStatusDeploymentConditions(inStatus, existingDeploys)
@@ -200,14 +213,22 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusCRDsHealthy(
 	rg ResourceGetter,
 	reqLogger logr.Logger) *redhatv1alpha1.CertManagerDeploymentStatus {
 
+	condition := redhatv1alpha1.CertManagerDeploymentCondition{
+		Type:    redhatv1alpha1.ConditionCRDsAreReady,
+		Status:  v1.ConditionUnknown,
+		Reason:  "AllCRDsHealthy",
+		Message: "CRDs NamesAccepted and Established Conditions are true.",
+	}
 	existingCRDs, ok := queryAPIForExpectedCRDs(r.client, rg, reqLogger)
 	if existingCRDs == nil {
 		reqLogger.Info("unable to determine status of expected CRDs for this instance")
 	}
 
 	if ok {
-		inStatus.CRDsHealthy = crdsAreReady(existingCRDs)
+		condition.Status = crdsAreReady(existingCRDs)
 	}
+
+	inStatus.Conditions = append(inStatus.Conditions, condition)
 
 	// bubble up crd conditions to the CR
 	updateStatusCRDConditions(inStatus, existingCRDs)
@@ -286,10 +307,48 @@ func queryAPIForExpectedCRDs(client client.Client, rg ResourceGetter, reqLogger 
 // reconcileStatusPhase will update the status phase indicator based on the discovered status of deployments
 // and CRDs. This must run after DeploymentsHealthy and CRDsHealthy have been updated by the status reconciler.
 func (r *ReconcileCertManagerDeployment) reconcileStatusPhase(inStatus *redhatv1alpha1.CertManagerDeploymentStatus) *redhatv1alpha1.CertManagerDeploymentStatus {
+	var crdsHealthy bool
+	var deploymentsHealthy bool
+	cmap := conditionsAsMap(inStatus.Conditions)
 
-	if inStatus.CRDsHealthy && inStatus.DeploymentsHealthy {
+	// query for the conditions and parse the evaluative state
+	if condition, ok := cmap[redhatv1alpha1.ConditionCRDsAreReady]; ok {
+		if condition.Status == v1.ConditionUnknown || condition.Status == v1.ConditionFalse {
+			// for this check, we'll evaluate unknown as false so that we force the CR to reflect
+			// a pending status
+			crdsHealthy = false
+		} else if condition.Status == v1.ConditionTrue {
+			// only other options.
+			crdsHealthy = true
+		}
+	} else {
+		// the condition was not found so we're going to report unhealthy
+		crdsHealthy = false
+	}
+
+	l.Println("------------------------------", "0")
+	if condition, ok := cmap[redhatv1alpha1.ConditionDeploymentsAreReady]; ok {
+		l.Println("------------------------------", "1")
+		l.Println("------------------------------", condition.Status)
+		if condition.Status == v1.ConditionUnknown || condition.Status == v1.ConditionFalse {
+			// for this check, we'll evaluate unknown as false so that we force the CR to reflect
+			// a pending status
+			deploymentsHealthy = false
+		} else if condition.Status == v1.ConditionTrue {
+			l.Println("------------------------------", "2")
+			// only other options.
+			deploymentsHealthy = true
+		}
+	} else {
+		l.Println("------------------------------", "3")
+		// the condition was not found so we're going to report unhealthy
+		deploymentsHealthy = false
+	}
+	l.Println("------------------------------", crdsHealthy, deploymentsHealthy)
+
+	if crdsHealthy && deploymentsHealthy {
 		inStatus.Phase = componentry.StatusPhaseRunning
-	} else if !inStatus.CRDsHealthy || !inStatus.DeploymentsHealthy {
+	} else if !crdsHealthy || !deploymentsHealthy {
 		inStatus.Phase = componentry.StatusPhasePending
 	}
 
@@ -332,4 +391,16 @@ func updateStatusCRDConditions(inStatus *redhatv1alpha1.CertManagerDeploymentSta
 
 	inStatus.CRDConditions = conditions
 	return inStatus
+}
+
+// conditionsAsMap takes in a slice of conditions for the CertManagerDeployment resource and returns a map where the key is
+// the condition.Type and the value is the condition itself.
+func conditionsAsMap(conditions []redhatv1alpha1.CertManagerDeploymentCondition) map[redhatv1alpha1.CertManagerDeploymentConditionType]redhatv1alpha1.CertManagerDeploymentCondition {
+	c := make(map[redhatv1alpha1.CertManagerDeploymentConditionType]redhatv1alpha1.CertManagerDeploymentCondition, 0)
+
+	for _, cond := range conditions {
+		c[cond.Type] = cond
+	}
+
+	return c
 }

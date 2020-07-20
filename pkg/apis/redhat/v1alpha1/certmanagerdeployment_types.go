@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -45,20 +46,16 @@ type DangerZone struct {
 
 // CertManagerDeploymentStatus defines the observed state of CertManagerDeployment
 type CertManagerDeploymentStatus struct {
+	// Conditions Represents the latest available observations of a CertManagerDeployment's current state.
+	Conditions []CertManagerDeploymentCondition `json:"conditions,omitempty"`
 	// Version is a status indicator showing the requested version of cert-manager deployed
 	// by this CertManagerDeployment custom resource.
 	Version string `json:"version,omitempty"`
 	// Phase is a status indicator showing the state of the object and all downstream resources
 	// it manages.
 	Phase string `json:"phase,omitempty"`
-	// DeploymentsHealthy is a status indicator showing the state of the deployments managed by
-	// this custom resource.
-	DeploymentsHealthy bool `json:"deploymentsHealthy,omitEmpty"`
 	// DeploymentConditions is a report of conditions on owned deployments by this CertManagerDeployment.
 	DeploymentConditions []ManagedDeploymentWithConditions `json:"deploymentConditions,omitEmpty"`
-	// CRDsHealthy is a status indicator showing the state of CRDs managed by this
-	// custom resource.
-	CRDsHealthy bool `json:"crdsHealthy,omitEmpty"`
 	// CRDConditions is a report of conditions on owned CRDs by this CertManagerDeployment.
 	CRDConditions []ManagedCRDWithConditions `json:"crdConditions,omitEmpty"`
 }
@@ -79,6 +76,36 @@ type ManagedCRDWithConditions struct {
 	Conditions []apiextv1beta1.CustomResourceDefinitionCondition `json:"conditions"`
 }
 
+// CertManagerDeploymentCondition represents conditions that can be applied to a CertManagerDeployment object.
+type CertManagerDeploymentCondition struct {
+	// Type of certmanagerdeployment condition.
+	Type CertManagerDeploymentConditionType `json:"type"`
+	// Status of the condition, one of True, False, Unknown.
+	Status corev1.ConditionStatus `json:"status"`
+	// The last time this condition was updated.
+	// LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty" protobuf:"bytes,6,opt,name=lastUpdateTime"`
+	// Last time the condition transitioned from one status to another.
+	// LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,7,opt,name=lastTransitionTime"`
+	// The reason for the condition's last transition.
+	Reason string `json:"reason,omitempty"`
+	// A human readable message indicating details about the transition.
+	Message string `json:"message,omitempty"`
+}
+
+// CertManagerDeploymentConditionType is the type of condition that is being reported on a CertManagerDeployment object.
+type CertManagerDeploymentConditionType string
+
+const (
+	// ConditionCRDsAreReady indicates that the API contains CRDs that match the expected CRD object
+	// that the operator would typically deploy, and that NamesAccepted and Established conditions
+	// on each CRD are both true.
+	ConditionCRDsAreReady CertManagerDeploymentConditionType = "CRDsAreReady"
+	// ConditionDeploymentsAreReady indicates that the API contains deployments that match the expected
+	// deployment names that the operator would typically deploy, and that the ready and available pods
+	// match the desired count of pods.
+	ConditionDeploymentsAreReady CertManagerDeploymentConditionType = "DeploymentsAreReady"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CertManagerDeployment is the Schema for the certmanagerdeployments API
@@ -87,8 +114,6 @@ type ManagedCRDWithConditions struct {
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
-// +kubebuilder:printcolumn:name="DeploymentsAreHealthy",type=string,JSONPath=`.status.deploymentsHealthy`
-// +kubebuilder:printcolumn:name="CRDsAreHealthy",type=string,JSONPath=`.status.crdsHealthy`
 type CertManagerDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

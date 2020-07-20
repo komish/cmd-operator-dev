@@ -18,12 +18,6 @@ spec:
     - jsonPath: .status.phase
       name: Phase
       type: string
-    - jsonPath: .status.deploymentsHealthy
-      name: DeploymentsAreHealthy
-      type: string
-    - jsonPath: .status.crdsHealthy
-      name: CRDsAreHealthy
-      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -91,6 +85,36 @@ spec:
             description: CertManagerDeploymentStatus defines the observed state of
               CertManagerDeployment
             properties:
+              conditions:
+                description: Conditions Represents the latest available observations
+                  of a CertManagerDeployment's current state.
+                items:
+                  description: CertManagerDeploymentCondition represents conditions
+                    that can be applied to a CertManagerDeployment object.
+                  properties:
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The last time this condition was updated. LastUpdateTime
+                        metav1.Time `json:"lastUpdateTime,omitempty" protobuf:"bytes,6,opt,name=lastUpdateTime"`
+                        Last time the condition transitioned from one status to another.
+                        LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"
+                        protobuf:"bytes,7,opt,name=lastTransitionTime"` The reason
+                        for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of certmanagerdeployment condition.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
               crdConditions:
                 description: CRDConditions is a report of conditions on owned CRDs
                   by this CertManagerDeployment.
@@ -139,10 +163,6 @@ spec:
                   - name
                   type: object
                 type: array
-              crdsHealthy:
-                description: CRDsHealthy is a status indicator showing the state of
-                  CRDs managed by this custom resource.
-                type: boolean
               deploymentConditions:
                 description: DeploymentConditions is a report of conditions on owned
                   deployments by this CertManagerDeployment.
@@ -194,10 +214,6 @@ spec:
                   - namespacedName
                   type: object
                 type: array
-              deploymentsHealthy:
-                description: DeploymentsHealthy is a status indicator showing the
-                  state of the deployments managed by this custom resource.
-                type: boolean
               phase:
                 description: Phase is a status indicator showing the state of the
                   object and all downstream resources it manages.
@@ -208,9 +224,7 @@ spec:
                 type: string
             required:
             - crdConditions
-            - crdsHealthy
             - deploymentConditions
-            - deploymentsHealthy
             type: object
         type: object
     served: true
