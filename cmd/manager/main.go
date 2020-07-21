@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/komish/certmanager-operator/pkg/controller/podrefresher"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -37,10 +39,12 @@ import (
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost               = "0.0.0.0"
-	metricsPort         int32 = 8383
-	operatorMetricsPort int32 = 8686
+	metricsHost                      = "0.0.0.0"
+	metricsPort                int32 = 8383
+	operatorMetricsPort        int32 = 8686
+	enablePodRefreshController bool
 )
+
 var log = logf.Log.WithName("cmd")
 
 func printVersion() {
@@ -48,6 +52,10 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+}
+
+func init() {
+	pflag.BoolVar(&enablePodRefreshController, "enable-pod-refresher", false, "Enables the Pod Refresher Controller")
 }
 
 func main() {
@@ -60,6 +68,11 @@ func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	pflag.Parse()
+
+	if enablePodRefreshController {
+		log.Info("Enabling Pod Refresher") //debug
+		controller.AddToManagerFuncs = append(controller.AddToManagerFuncs, podrefresher.Add)
+	}
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
