@@ -3,9 +3,10 @@ package certmanagerdeployment
 import (
 	"context"
 	"fmt"
-	l "log"
 	"strconv"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
@@ -181,7 +182,7 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusDeploymentsHealthy(
 	rg ResourceGetter,
 	reqLogger logr.Logger) *redhatv1alpha1.CertManagerDeploymentStatus {
 
-	deploymentHealthyCondition := redhatv1alpha1.CertManagerDeploymentCondition{
+	condition := redhatv1alpha1.CertManagerDeploymentCondition{
 		Type:    redhatv1alpha1.ConditionDeploymentsAreReady,
 		Status:  corev1.ConditionUnknown,
 		Reason:  "AllDeploymentsHealthy",
@@ -194,10 +195,11 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusDeploymentsHealthy(
 	}
 
 	if ok {
-		deploymentHealthyCondition.Status = deploymentsAreReady(existingDeploys)
+		condition.Status = deploymentsAreReady(existingDeploys)
 	}
 
-	inStatus.Conditions = append(inStatus.Conditions, deploymentHealthyCondition)
+	condition.LastUpdateTime = metav1.Now()
+	inStatus.Conditions = append(inStatus.Conditions, condition)
 
 	// bubble up deployment conditions to the CR.
 	updateStatusDeploymentConditions(inStatus, existingDeploys)
@@ -228,6 +230,7 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusCRDsHealthy(
 		condition.Status = crdsAreReady(existingCRDs)
 	}
 
+	condition.LastUpdateTime = metav1.Now()
 	inStatus.Conditions = append(inStatus.Conditions, condition)
 
 	// bubble up crd conditions to the CR
@@ -326,25 +329,19 @@ func (r *ReconcileCertManagerDeployment) reconcileStatusPhase(inStatus *redhatv1
 		crdsHealthy = false
 	}
 
-	l.Println("------------------------------", "0")
 	if condition, ok := cmap[redhatv1alpha1.ConditionDeploymentsAreReady]; ok {
-		l.Println("------------------------------", "1")
-		l.Println("------------------------------", condition.Status)
 		if condition.Status == corev1.ConditionUnknown || condition.Status == corev1.ConditionFalse {
 			// for this check, we'll evaluate unknown as false so that we force the CR to reflect
 			// a pending status
 			deploymentsHealthy = false
 		} else if condition.Status == corev1.ConditionTrue {
-			l.Println("------------------------------", "2")
 			// only other options.
 			deploymentsHealthy = true
 		}
 	} else {
-		l.Println("------------------------------", "3")
 		// the condition was not found so we're going to report unhealthy
 		deploymentsHealthy = false
 	}
-	l.Println("------------------------------", crdsHealthy, deploymentsHealthy)
 
 	if crdsHealthy && deploymentsHealthy {
 		inStatus.Phase = componentry.StatusPhaseRunning

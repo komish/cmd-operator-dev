@@ -92,15 +92,17 @@ spec:
                   description: CertManagerDeploymentCondition represents conditions
                     that can be applied to a CertManagerDeployment object.
                   properties:
+                    lastUpdateTime:
+                      description: The last time this condition was updated.
+                      format: date-time
+                      type: string
                     message:
                       description: A human readable message indicating details about
                         the transition.
                       type: string
                     reason:
-                      description: The last time this condition was updated. LastUpdateTime
-                        metav1.Time `json:"lastUpdateTime,omitempty" protobuf:"bytes,6,opt,name=lastUpdateTime"`
-                        Last time the condition transitioned from one status to another.
-                        LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"
+                      description: Last time the condition transitioned from one status
+                        to another. LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"
                         protobuf:"bytes,7,opt,name=lastTransitionTime"` The reason
                         for the condition's last transition.
                       type: string
