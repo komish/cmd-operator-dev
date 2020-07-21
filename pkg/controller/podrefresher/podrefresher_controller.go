@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -32,10 +31,6 @@ var (
 	// Eventing helpers
 	refresh        = podRefresherEvent{reason: "PodRefresh", message: "Associated pods restarted as a cert-manager secret used by the object has changed."}
 	refreshFailure = podRefresherEvent{reason: "PodRefreshFailure", message: "Unable to restart pods associated with object due to an API error."}
-
-	// reconciliationCounter helps track reconciliation requests against a specific secret. Operator restarts should not cause certificate-dependent resources
-	// to restart, so we'll count times we've seen a secret get reconciled and start actually triggering restarts when we've seen a secret more than once.
-	reconciliationCounter = make(map[string]int)
 )
 
 // Add creates a new Pod Refresher Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -58,7 +53,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Secret
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForObject{}, PodRefresherPredicateFuncs)
 	if err != nil {
 		return err
 	}
@@ -117,12 +112,6 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 	ants := secret.GetAnnotations()
 	if _, ok := ants[certManagerIssuerKindAnnotation]; !ok {
 		reqLogger.V(2).Info("Secret is not a cert-manager issued certificate. Disregarding.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
-		return reconcile.Result{}, nil
-	}
-
-	// Hard stop if this is the first time we've seen this object.
-	if !shouldTriggerRefresh(request.NamespacedName) {
-		reqLogger.Info("First time seeing reconciliation request for object, skipping reconciliation for it.", "Request.NamespacedName", request.NamespacedName.String())
 		return reconcile.Result{}, nil
 	}
 
@@ -263,18 +252,4 @@ func usesSecret(secret *corev1.Secret, podspec corev1.PodSpec) bool {
 	}
 	// We didn't find a volume from a secret that matched our input secret.
 	return false
-}
-
-// shouldTriggerRefresh will return true if this is not the first time the NamespacedName of the
-// object has been seen by the reconciler. This helps prevent a restart of the controller from
-// triggering refreshes of resources.
-func shouldTriggerRefresh(NamespacedName types.NamespacedName) bool {
-	_, ok := reconciliationCounter[NamespacedName.String()]
-	if !ok {
-		// If !ok, the value for this NamespacedName is zero so we increment
-		reconciliationCounter[NamespacedName.String()]++
-		return false
-	}
-
-	return true
 }
