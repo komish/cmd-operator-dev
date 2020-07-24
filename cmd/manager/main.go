@@ -43,6 +43,8 @@ var (
 	metricsPort                int32 = 8383
 	operatorMetricsPort        int32 = 8686
 	enablePodRefreshController bool
+	zapLogLevelFlag            string = "--zap-level"
+	operatorLogLevelEnvVar     string = "OPERATOR_LOG_LEVEL"
 )
 
 var log = logf.Log.WithName("cmd")
@@ -63,16 +65,20 @@ func main() {
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 
+	// accept environment variable value for zap-level as OPERATOR_LOG_LEVEL
+
 	// Add flags registered by imported packages (e.g. glog and
 	// controller-runtime)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
-	pflag.Parse()
-
-	if enablePodRefreshController {
-		log.Info("Enabling Pod Refresher") //debug
-		controller.AddToManagerFuncs = append(controller.AddToManagerFuncs, podrefresher.Add)
+	// NOTE: This is a workaround to enable setting log level at the environment level.
+	// This may (or is likely to) be removed in the future. Doing this before parse
+	// allows for zap's FlagSet to parse for proper values.
+	if val := os.Getenv(operatorLogLevelEnvVar); val != "" {
+		os.Args = append([]string{os.Args[0], zapLogLevelFlag, val}, os.Args[1:]...)
 	}
+
+	pflag.Parse()
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
@@ -85,6 +91,13 @@ func main() {
 	logf.SetLogger(zap.Logger())
 
 	printVersion()
+
+	if enablePodRefreshController {
+		log.Info("Pod refresh controller is enabled")
+		controller.AddToManagerFuncs = append(controller.AddToManagerFuncs, podrefresher.Add)
+	} else {
+		log.Info("Pod refresh controller is disabled")
+	}
 
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {

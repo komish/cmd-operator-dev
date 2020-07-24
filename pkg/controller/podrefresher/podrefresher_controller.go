@@ -111,14 +111,14 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 	// a bounce on a resource that is not a cert-manager-related secret.
 	ants := secret.GetAnnotations()
 	if _, ok := ants[certManagerIssuerKindAnnotation]; !ok {
-		reqLogger.V(2).Info("Secret is not a cert-manager issued certificate. Disregarding.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+		reqLogger.Info("Secret is not a cert-manager issued certificate. Disregarding.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 
-	reqLogger.Info("Secret is a cert-manager issued certificate.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+	reqLogger.Info("Secret is a cert-manager issued certificate. Checking deployments/statefulsets/daemonsets using Secret.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 
 	// If Secret has been updated, try to find deployments in the same namespace that needs to be bounced.
-	reqLogger.Info("Looking for deployments in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+	reqLogger.V(2).Info("Looking for deployments in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 	deployList := appsv1.DeploymentList{}
 	err = r.client.List(context.TODO(), &deployList, &client.ListOptions{Namespace: secret.GetNamespace()})
 	if err != nil {
@@ -127,7 +127,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// If Secret has been updated, try to find daemonsets in the same namespace that needs to be bounced.
-	reqLogger.Info("Looking for daemonsets in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+	reqLogger.V(2).Info("Looking for daemonsets in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 	dsetList := appsv1.DaemonSetList{}
 	err = r.client.List(context.TODO(), &dsetList, &client.ListOptions{Namespace: secret.GetNamespace()})
 	if err != nil {
@@ -136,7 +136,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// If Secret has been updated, try to find statefulsets in the same namespace that needs to be bounced.
-	reqLogger.Info("Looking for statefulset in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
+	reqLogger.V(2).Info("Looking for statefulset in namespace using certificate", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 	stsList := appsv1.StatefulSetList{}
 	err = r.client.List(context.TODO(), &stsList, &client.ListOptions{Namespace: secret.GetNamespace()})
 	if err != nil {
@@ -160,7 +160,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 			updatedDeploy.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
 			err := r.client.Update(context.TODO(), updatedDeploy)
 			if err != nil {
-				r.recorder.Event(&deploy, "Error", refreshFailure.reason, refreshFailure.message)
+				r.recorder.Event(&deploy, corev1.EventTypeWarning, refreshFailure.reason, refreshFailure.message)
 				reqLogger.Error(err, "Unable to restart deployment.", "Deployment.Name", deploy.GetName())
 				refreshErrors = append(refreshErrors, refreshErrorData{kind: deploy.Kind, name: deploy.GetName(), namespace: deploy.GetNamespace(), errorMsg: err.Error()})
 				updateFailed = true
@@ -180,6 +180,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 			err := r.client.Update(context.TODO(), updatedDset)
 			if err != nil {
 				reqLogger.Error(err, "Unable to restart Daemonset.", "Daemonset.Name", dset.GetName())
+				r.recorder.Event(&dset, corev1.EventTypeWarning, refreshFailure.reason, refreshFailure.message)
 				refreshErrors = append(refreshErrors, refreshErrorData{kind: dset.Kind, name: dset.GetName(), namespace: dset.GetNamespace(), errorMsg: err.Error()})
 				updateFailed = true
 			}
@@ -198,6 +199,7 @@ func (r *ReconcilePodRefresher) Reconcile(request reconcile.Request) (reconcile.
 			err := r.client.Update(context.TODO(), updatedsts)
 			if err != nil {
 				reqLogger.Error(err, "Unable to restart Statefulset.", "Statefulset.Name", sts.GetName())
+				r.recorder.Event(&sts, corev1.EventTypeWarning, refreshFailure.reason, refreshFailure.message)
 				refreshErrors = append(refreshErrors, refreshErrorData{kind: sts.Kind, name: sts.GetName(), namespace: sts.GetNamespace(), errorMsg: err.Error()})
 				updateFailed = true
 			}
