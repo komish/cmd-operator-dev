@@ -50,6 +50,7 @@ var (
 		"v0.14.3": true,
 		"v0.15.0": true,
 		"v0.15.1": true,
+		"v0.15.2": true,
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -197,7 +198,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v0.15.1",
+							Image:           "quay.io/jetstack/cert-manager-controller:v0.15.2",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -225,6 +226,11 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
+	case "v0.15.1":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
+			container.Image = "quay.io/jetstack/cert-manager-controller:v0.15.1"
+		}
 	case "v0.15.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
@@ -284,7 +290,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.15.1",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.15.2",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -295,6 +301,11 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
+	case "v0.15.1":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.15.1"
+		}
 	case "v0.15.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
@@ -349,7 +360,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.1",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.2",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -467,6 +478,11 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
+	case "v0.15.1":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = "quay.io/jetstack/cert-manager-webhook:v0.15.1"
+		}
 	case "v0.15.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
