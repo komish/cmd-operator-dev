@@ -47,10 +47,10 @@ var (
 	// Changes to these values also need to be mirrored in the CertManageDeploymentSpec generation
 	// validation annotations.
 	SupportedVersions = map[string]bool{
-		"v0.14.3": true,
 		"v0.15.0": true,
 		"v0.15.1": true,
 		"v0.15.2": true,
+		"v0.16.0": true,
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -198,7 +198,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v0.15.2",
+							Image:           "quay.io/jetstack/cert-manager-controller:v0.16.0",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -226,6 +226,11 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
+	case "v0.15.2":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
+			container.Image = "quay.io/jetstack/cert-manager-controller:v0.15.2"
+		}
 	case "v0.15.1":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
@@ -235,20 +240,6 @@ func GetComponentForController(version string) CertManagerComponent {
 		{
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
 			container.Image = "quay.io/jetstack/cert-manager-controller:v0.15.0"
-		}
-	case "v0.14.3":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
-			container.Image = "quay.io/jetstack/cert-manager-controller:v0.14.3"
-			container.Args = []string{
-				"--v=2",
-				"--cluster-resource-namespace=$(POD_NAMESPACE)",
-				"--leader-election-namespace=$(POD_NAMESPACE)",
-				"--webhook-namespace=$(POD_NAMESPACE)",
-				"--webhook-ca-secret=cert-manager-webhook-ca",
-				"--webhook-serving-secret=cert-manager-webhook-tls",
-				"--webhook-dns-names=cert-manager-webhook,cert-manager-webhook.cert-manager,cert-manager-webhook.cert-manager.svc",
-			}
 		}
 	}
 
@@ -290,7 +281,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.15.2",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.16.0",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -301,6 +292,11 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
+	case "v0.15.2":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.15.2"
+		}
 	case "v0.15.1":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
@@ -311,9 +307,6 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.15.0"
 		}
-	case "v0.14.3":
-		container := &comp.deployment.Template.Spec.Containers[0]
-		container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.14.3"
 	}
 	return comp
 }
@@ -360,7 +353,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v0.15.2",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v0.16.0",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -429,7 +422,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 								Rule: adregv1beta1.Rule{
 									Resources:   []string{"*/*"},
 									APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
-									APIVersions: []string{"v1alpha2", "v1alpha3"},
+									APIVersions: []string{"*"},
 								},
 							},
 						},
@@ -452,7 +445,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 								Operations: []adregv1beta1.OperationType{adregv1beta1.Create, adregv1beta1.Update},
 								Rule: adregv1beta1.Rule{
 									APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
-									APIVersions: []string{"v1alpha2", "v1alpha3"},
+									APIVersions: []string{"*"},
 									Resources:   []string{"*/*"},
 								},
 							},
@@ -478,6 +471,11 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
+	case "v0.15.2":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = "quay.io/jetstack/cert-manager-webhook:v0.15.2"
+		}
 	case "v0.15.1":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
@@ -487,61 +485,6 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = "quay.io/jetstack/cert-manager-webhook:v0.15.0"
-		}
-	case "v0.14.3":
-		// make modifications to the current template for v0.14.3.
-		container := &comp.deployment.Template.Spec.Containers[0]
-		// new image
-		container.Image = "quay.io/jetstack/cert-manager-webhook:v0.14.3"
-		// new arguments
-		container.Args = []string{
-			"--v=2",
-			"--secure-port=10250",
-			"--tls-cert-file=/certs/tls.crt",
-			"--tls-private-key-file=/certs/tls.key",
-		}
-		// livenessProbes remove the delay and period
-		container.LivenessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/livez",
-					Port:   intstr.IntOrString{IntVal: 6080},
-					Scheme: corev1.URISchemeHTTP,
-				},
-			},
-		}
-		// readinessProbes remove the delay and period
-		container.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/healthz",
-					Port:   intstr.IntOrString{IntVal: 6080},
-					Scheme: corev1.URISchemeHTTP,
-				},
-			},
-		}
-		// this version requires a volume mount
-		container.VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      "certs",
-				MountPath: "/certs",
-			},
-		}
-
-		comp.deployment.Template.Spec.Volumes = []corev1.Volume{
-			{
-				Name: "certs",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: "cert-manager-webhook-tls",
-					},
-				},
-			},
-		}
-
-		// this version's webhook has a different annotation than default supported
-		for _, hook := range comp.webhooks {
-			hook.annotations["cert-manager.io/inject-ca-from-secret"] = "cert-manager/cert-manager-webhook-tls"
 		}
 	}
 
