@@ -29,6 +29,13 @@ var (
 		message: "Deployment does not exist and needs to be created",
 	}
 
+	// updateManagedDeployment is an event indicating that a deployment is being updated.
+	updateManagedDeployment = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatingDeployment",
+		message: "Deployment exists but does not match desired state and needs updating",
+	}
+
 	// createManagedCRD is an event indicating that a CRD is being created.
 	createManagedCRD = Event{
 		etype:   EventTypeNormal,
@@ -90,6 +97,13 @@ var (
 		etype:   EventTypeNormal,
 		reason:  "CreatingService",
 		message: "Service does not exist and needs to be created",
+	}
+
+	// updateManagedService is an event indicating that a service is being created
+	updateManagedService = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdateService",
+		message: "Service exists but does not match desired state and needs updating",
 	}
 
 	// createManagedWebhook is an event indicating that a webhook is being created

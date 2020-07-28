@@ -71,9 +71,11 @@ func HasLabelOrAnnotationWithValue(in map[string]string, key, value string) bool
 	return false
 }
 
-// LabelsAndAnnotationsMatch returns true if two objects that have ObjectMeta both have the same labels and annotations.
-// In this case, dest object must have the same labels and annotations as the src object so it should be assumed the dest
-// object might have more labels and annotations so long as it has the same ones as the src.
+// LabelsAndAnnotationsMatch returns true if two objects that have ObjectMeta
+// both have the same labels and annotations. In this case, dest object must
+// have the same labels and annotations as the src object so it should be
+// assumed the dest object might have more labels and annotations and this
+// is acceptable so long as it has the same ones as the src.
 func LabelsAndAnnotationsMatch(src, dest metav1.Object) bool {
 	lblsMatch := true
 	annotsMatch := true
