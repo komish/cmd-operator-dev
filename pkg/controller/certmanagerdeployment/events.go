@@ -30,10 +30,17 @@ var (
 	}
 
 	// updateManagedDeployment is an event indicating that a deployment is being updated.
-	updateManagedDeployment = Event{
+	updatingManagedDeployment = Event{
 		etype:   EventTypeNormal,
 		reason:  "UpdatingDeployment",
 		message: "Deployment exists but does not match desired state and needs updating",
+	}
+
+	// updateManagedDeployment is an event indicating that a deployment has been updated.
+	updatedManagedDeployment = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedDeployment",
+		message: "Deployment has been successfully updated",
 	}
 
 	// createManagedCRD is an event indicating that a CRD is being created.
@@ -44,13 +51,20 @@ var (
 	}
 
 	// updateManagedCRD is an event indicating that a CRD is being updated.
-	updateManagedCRD = Event{
+	updatingManagedCRD = Event{
 		etype:   EventTypeNormal,
 		reason:  "UpdatingCRD",
 		message: "CRD exists but does not match desired state and needs updating",
 	}
 
-	// createManagedNamespace is an event indicating that a namespace is being created
+	// updateManagedCRD is an event indicating that a CRD has been updated.
+	updatedManagedCRD = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedCRD",
+		message: "CRD has been successfully updated",
+	}
+
+	// createManagedNamespace is an event indicating that a namespace is being created.
 	createManagedNamespace = Event{
 		etype:   EventTypeNormal,
 		reason:  "CreatingNamespace",
@@ -99,11 +113,18 @@ var (
 		message: "Service does not exist and needs to be created",
 	}
 
-	// updateManagedService is an event indicating that a service is being created
-	updateManagedService = Event{
+	// updateManagedService is an event indicating that a service is being updated
+	updatingManagedService = Event{
 		etype:   EventTypeNormal,
-		reason:  "UpdateService",
+		reason:  "UpdatingService",
 		message: "Service exists but does not match desired state and needs updating",
+	}
+
+	// updateManagedService is an event indicating that a service has been updated
+	updatedManagedService = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedService",
+		message: "Service has been successfully updated.",
 	}
 
 	// createManagedWebhook is an event indicating that a webhook is being created

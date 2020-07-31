@@ -5,6 +5,9 @@
 package cmdoputils
 
 import (
+	"encoding/json"
+	"reflect"
+
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -96,4 +99,87 @@ func LabelsAndAnnotationsMatch(src, dest metav1.Object) bool {
 	}
 
 	return lblsMatch && annotsMatch
+}
+
+// ObjectsMatch compares the JSON-form of two objects. The src object is considered to be
+// the mold, which means that its keys and values must exist in the dest object for this
+// to return true. The dest object can have additional keys and values, so long as the
+// keys as defined by the src exist and have the same value. Input objects are expected
+// be of the same type, or effectively be the same format when marshaled to JSON.
+func ObjectsMatch(src, dest interface{}) bool {
+	switch typedSrc := src.(type) {
+	case map[string]interface{}:
+		x := typedSrc
+		y, ok := dest.(map[string]interface{})
+		if !ok {
+			return false
+		}
+		for k, v := range x {
+			switch v.(type) {
+			case string, float64, bool:
+				if x[k] != y[k] {
+					return false
+				}
+			case map[string]interface{}, []interface{}:
+				if ok := ObjectsMatch(x[k], y[k]); !ok {
+					return false
+				}
+			case nil:
+			default:
+				// we don't know what the input type is.
+				return false
+			}
+		}
+	case []interface{}:
+		x := typedSrc
+		y, ok := dest.([]interface{})
+		if !ok {
+			return false
+		}
+		for i, v := range x {
+			switch v.(type) {
+			case string, float64, bool:
+				return reflect.DeepEqual(x, y)
+			case map[string]interface{}:
+				if ok := ObjectsMatch(x[i], y[i]); !ok {
+					return false
+				}
+			case []interface{}:
+				if ok := ObjectsMatch(x[i], y[i]); !ok {
+					return false
+				}
+			default:
+				return false
+			}
+		}
+	case nil:
+		// If the source type is nil, there's nothing to compare.
+	default:
+		// we don't know what the input type is.
+		return false
+	}
+
+	return true
+}
+
+// Interfacer is a helper type that helps convert JSON-serializable objects
+// to an interface{} of their respective JSON representation  by unmarshaling
+// to an interface.
+type Interfacer struct {
+	Data interface{}
+}
+
+// ToJSONInterface converts data to an interface
+func (i Interfacer) ToJSONInterface() (interface{}, error) {
+	var iface interface{}
+	b, err := json.Marshal(i.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(b, &iface)
+	if err != nil {
+		return nil, err
+	}
+	return iface, nil
 }

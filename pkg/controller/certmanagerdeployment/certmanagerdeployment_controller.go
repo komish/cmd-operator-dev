@@ -4,9 +4,9 @@ import (
 	"context"
 	e "errors"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
+	"github.com/imdario/mergo"
 	redhatv1alpha1 "github.com/komish/certmanager-operator/pkg/apis/redhat/v1alpha1"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/cmdoputils"
 	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
@@ -530,35 +530,82 @@ func (r *ReconcileCertManagerDeployment) reconcileDeployments(instance *redhatv1
 		}
 
 		// A deployment exists. Update if necessary.
+		genSpecInterface, err := cmdoputils.Interfacer{Data: dep.Spec}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundSpecInterface, err := cmdoputils.Interfacer{Data: found.Spec}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
 
-		// specsMatch := reflect.DeepEqual(dep.Spec, found.Spec)
-		// lblsAndAnnotsMatch := cmdoputils.LabelsAndAnnotationsMatch(dep, found)
-		// if !(specsMatch && lblsAndAnnotsMatch) {
-		// 	reqLogger.Info("Deployment already exists, but needs an update.",
-		// 		"Deployment.Name", dep.GetName(),
-		// 		"Deployment.Namespace", dep.GetNamespace(),
-		// 		"HasExpectedLabelsAndValues", lblsAndAnnotsMatch,
-		// 		"HasExpectedSpec", specsMatch)
-		// 	r.recorder.Eventf(instance, updateManagedDeployment.etype, updateManagedDeployment.reason, "%s: %s/%s", updateManagedDeployment.message, dep.GetNamespace(), dep.GetName()) // BOOKMARK
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: dep.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
 
-		// 	// modify the state of the old object to post to API
-		// 	updated := found.DeepCopy()
+		genAnnotsInterface, err := cmdoputils.Interfacer{Data: dep.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundAnnotsInterface, err := cmdoputils.Interfacer{Data: found.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
 
-		// 	if !specsMatch {
-		// 		updated.Spec = dep.Spec
-		// 	}
+		specsMatch := cmdoputils.ObjectsMatch(genSpecInterface, foundSpecInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
 
-		// 	if !lblsAndAnnotsMatch {
-		// 		updated.ObjectMeta.Annotations = dep.GetAnnotations()
-		// 		updated.ObjectMeta.Labels = dep.GetLabels()
-		// 	}
+		if !(specsMatch && labelsMatch && annotsMatch) {
+			reqLogger.Info("Deployment already exists, but needs an update.",
+				"Deployment.Name", dep.GetName(),
+				"Deployment.Namespace", dep.GetNamespace(),
+				"HasExpectedLabels", labelsMatch,
+				"HasExpectedAnnotation", annotsMatch,
+				"HasExpectedSpec", specsMatch)
+			r.recorder.Eventf(instance, updatingManagedDeployment.etype, updatingManagedDeployment.reason, "%s: %s/%s", updatingManagedDeployment.message, dep.GetNamespace(), dep.GetName()) // BOOKMARK
 
-		// 	reqLogger.Info("Updating Deployment.", "Deployment.Name", dep.GetName(), "Deployment.Namespace", dep.GetNamespace())
-		// 	if err := r.client.Update(context.TODO(), updated); err != nil {
-		// 		// some issue performing the update.
-		// 		return err
-		// 	}
-		// }
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !specsMatch {
+				// update our local copy with values to keys as defined in our generated spec.
+				err := mergo.Merge(&updated.Spec, dep.Spec, mergo.WithOverride)
+				if err != nil {
+					// Some problem merging the specs
+					return err
+				}
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = dep.GetLabels()
+			}
+
+			if !annotsMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.ObjectMeta.Annotations = dep.GetAnnotations()
+			}
+
+			reqLogger.Info("Updating Deployment.", "Deployment.Name", dep.GetName(), "Deployment.Namespace", dep.GetNamespace())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.recorder.Eventf(instance, updatedManagedDeployment.etype, updatedManagedDeployment.reason, "%s: %s/%s", updatedManagedDeployment.message, dep.GetNamespace(), dep.GetName())
+		}
 	}
 
 	return nil
@@ -597,39 +644,86 @@ func (r *ReconcileCertManagerDeployment) reconcileServices(instance *redhatv1alp
 			return err
 		}
 
-		// TODO(komish): Need to review semantic comparisons as services have fields such as ClusterIP which are not
-		// generated by the operator but are injected by the API server so deep equal fails.
 		// the service exists. If it needs updating, update it.
-		// specsMatch := reflect.DeepEqual(svc.Spec, found.Spec)
-		// lblsAndAnnotsMatch := cmdoputils.LabelsAndAnnotationsMatch(svc, found)
-		// if !(specsMatch && lblsAndAnnotsMatch) {
-		// 	reqLogger.Info("Service already exists, but needs an update.",
-		// 		"Service.Name", svc.GetName(),
-		// 		"HasExpectedLabelsAndValues", lblsAndAnnotsMatch,
-		// 		"HasExpectedSpec", specsMatch)
-		// 	r.recorder.Eventf(instance, updateManagedService.etype, updateManagedService.reason, "%s: %s/%s", updateManagedService.message, svc.GetNamespace(), svc.GetName())
+		// TODO(komish): move update logic to its own function?
+		genSpecInterface, err := cmdoputils.Interfacer{Data: svc.Spec}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundSpecInterface, err := cmdoputils.Interfacer{Data: found.Spec}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
 
-		// 	// modify the state of the old object to post to API
-		// 	updated := found.DeepCopy()
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: svc.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
 
-		// 	if !specsMatch {
-		// 		updated.Spec = svc.Spec
-		// 	}
+		genAnnotsInterface, err := cmdoputils.Interfacer{Data: svc.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundAnnotsInterface, err := cmdoputils.Interfacer{Data: found.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
 
-		// 	if !lblsAndAnnotsMatch {
-		// 		updated.ObjectMeta.Annotations = svc.GetAnnotations()
-		// 		updated.ObjectMeta.Labels = svc.GetLabels()
-		// 	}
+		specsMatch := cmdoputils.ObjectsMatch(genSpecInterface, foundSpecInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
+		if !(specsMatch && labelsMatch && annotsMatch) {
+			reqLogger.Info("Service already exists, but needs an update.",
+				"Service.Name", svc.GetName(),
+				"HasExpectedLabels", labelsMatch,
+				"HasExpectedAnnotation", annotsMatch,
+				"HasExpectedSpec", specsMatch)
+			r.recorder.Eventf(instance, updatingManagedService.etype, updatingManagedService.reason, "%s: %s/%s", updatingManagedService.message, svc.GetNamespace(), svc.GetName())
+			// TODO(komish): Uncomment when you've determined how to get the resource version after an update as you would in client-go
+			// originalResourceVersion := found.GetResourceVersion()
 
-		// 	reqLogger.Info("Updating Service.", "Service.Name", svc.GetName(), "Service.Namespace", svc.GetNamespace())
-		// 	if err := r.client.Update(context.TODO(), updated); err != nil {
-		// 		// some issue performing the update.
-		// 		return err
-		// 	}
-		// }
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
 
+			if !specsMatch {
+				// update our local copy with values to keys as defined in our generated spec.
+				err := mergo.Merge(&updated.Spec, svc.Spec, mergo.WithOverride)
+				if err != nil {
+					// Some problem merging the specs
+					return err
+				}
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = svc.GetLabels()
+			}
+
+			if !annotsMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.ObjectMeta.Annotations = svc.GetAnnotations()
+			}
+
+			reqLogger.Info("Updating Service.", "Service.Name", svc.GetName(), "Service.Namespace", svc.GetNamespace())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			// successful update!
+			r.recorder.Eventf(instance, updatedManagedService.etype, updatedManagedService.reason, "%s: %s/%s", updatedManagedService.message, svc.GetNamespace(), svc.GetName())
+		}
 	}
-
 	return nil
 }
 
@@ -734,28 +828,79 @@ func (r *ReconcileCertManagerDeployment) reconcileCRDs(instance *redhatv1alpha1.
 		// we found an instance of the CRD already. Do the comparison and if they don't match, recreate.
 		// TODO(): possible to add a dry run? Make sure we can update all of them before we start updating any of them?
 		// Otherwise might need to consider adding a rollback.
-		specsMatch := reflect.DeepEqual(crd.Spec, found.Spec)
-		lblsAndAnnotsMatch := cmdoputils.LabelsAndAnnotationsMatch(crd, found)
-		if !(specsMatch && lblsAndAnnotsMatch) {
-			reqLogger.Info("CustomResourceDefinition already exists, but needs an update. Updating.", "CustomResourceDefinition.Name", crd.GetName(), "LabelsAndAnnotationsMatched", lblsAndAnnotsMatch, "SpecsMatch", specsMatch)
-			r.recorder.Eventf(instance, updateManagedCRD.etype, updateManagedCRD.reason, "%s: %s", updateManagedCRD.message, crd.GetName())
+		genSpecInterface, err := cmdoputils.Interfacer{Data: crd.Spec}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundSpecInterface, err := cmdoputils.Interfacer{Data: found.Spec}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: crd.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genAnnotsInterface, err := cmdoputils.Interfacer{Data: crd.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundAnnotsInterface, err := cmdoputils.Interfacer{Data: found.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		specsMatch := cmdoputils.ObjectsMatch(genSpecInterface, foundSpecInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
+		if !(specsMatch && labelsMatch && annotsMatch) {
+			reqLogger.Info("CustomResourceDefinition already exists, but needs an update. Updating.",
+				"CustomResourceDefinition.Name", crd.GetName(),
+				"HasExpectedLabels", labelsMatch,
+				"HasExpectedAnnotations", annotsMatch,
+				"HasExpectedSpec", specsMatch)
+			r.recorder.Eventf(instance, updatingManagedCRD.etype, updatingManagedCRD.reason, "%s: %s", updatingManagedCRD.message, crd.GetName())
 
 			// modify the state of the old object to post to API
 			updated := found.DeepCopy()
 
 			if !specsMatch {
-				updated.Spec = crd.Spec
+				// update our local copy with values to keys as defined in our generated spec.
+				err := mergo.Merge(&updated.Spec, crd.Spec, mergo.WithOverride)
+				if err != nil {
+					// Some problem merging the specs
+					return err
+				}
 			}
 
-			if !lblsAndAnnotsMatch {
-				updated.ObjectMeta.Annotations = crd.GetAnnotations()
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
 				updated.ObjectMeta.Labels = crd.GetLabels()
 			}
 
+			if !annotsMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.ObjectMeta.Annotations = crd.GetAnnotations()
+			}
+
+			reqLogger.Info("Updating CustomResourceDefinition.", "CustomResourceDefinition.Name", crd.GetName())
 			if err := r.client.Update(context.TODO(), updated); err != nil {
 				// some issue performing the update.
 				return err
 			}
+
+			r.recorder.Eventf(instance, updatedManagedCRD.etype, updatedManagedCRD.reason, "%s: %s", updatedManagedCRD.message, crd.GetName())
 		}
 	}
 
