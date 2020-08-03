@@ -340,6 +340,61 @@ func (r *ReconcileCertManagerDeployment) reconcileRoles(instance *redhatv1alpha1
 		} else if err != nil {
 			return err
 		}
+
+		// A role exists. Update if necessary.
+		genRulesInterface, err := cmdoputils.Interfacer{Data: role.Rules}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundRulesInterface, err := cmdoputils.Interfacer{Data: found.Rules}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: role.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		rulesMatch := cmdoputils.ObjectsMatch(genRulesInterface, foundRulesInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+
+		if !(rulesMatch && labelsMatch) {
+			reqLogger.Info("Role already exists, but needs an update.",
+				"Role.Name", role.GetName(),
+				"Role.Namespace", role.GetNamespace(),
+				"HasExpectedRules", rulesMatch,
+				"HasExpectedLabels", labelsMatch)
+			r.recorder.Eventf(instance, updatingManagedRole.etype, updatingManagedRole.reason, "%s: %s/%s", updatingManagedRole.message, role.GetNamespace(), role.GetName())
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !rulesMatch {
+				updated.Rules = role.Rules
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = role.GetLabels()
+			}
+
+			reqLogger.Info("Updating Role.", "Role.Name", role.GetName(), "Role.Namespace", role.GetNamespace())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.recorder.Eventf(instance, updatedManagedRole.etype, updatedManagedRole.reason, "%s: %s/%s", updatedManagedRole.message, role.GetNamespace(), role.GetName())
+		}
 	}
 
 	return err
@@ -416,6 +471,70 @@ func (r *ReconcileCertManagerDeployment) reconcileRoleBindings(instance *redhatv
 				return err
 			}
 		}
+		// A rolebinding exists. Update if necessary.
+		// TODO() RoleRef cannot be updated, need to decide if we want to support changes
+		// in which case we need to delete and recreate.
+		genSubjectsInterface, err := cmdoputils.Interfacer{Data: rolebinding.Subjects}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundSubjectsInterface, err := cmdoputils.Interfacer{Data: found.Subjects}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: rolebinding.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: rolebinding.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		subjectsMatch := cmdoputils.ObjectsMatch(genSubjectsInterface, foundSubjectsInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+
+		if !(subjectsMatch && labelsMatch) {
+			reqLogger.Info("Rolebinding already exists, but needs an update.",
+				"RoleBinding.Name", rolebinding.GetName(),
+				"RoleBinding.Namespace", rolebinding.GetNamespace(),
+				"HasExpectedSubjects", subjectsMatch,
+				"HasExpectedLabels", labelsMatch)
+			r.recorder.Eventf(instance, updatingManagedRoleBinding.etype, updatingManagedRoleBinding.reason, "%s: %s/%s", updatingManagedRoleBinding.message, rolebinding.GetNamespace(), rolebinding.GetName())
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !subjectsMatch {
+				updated.Subjects = rolebinding.Subjects
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = rolebinding.GetLabels()
+			}
+
+			reqLogger.Info("Updating RoleBinding.",
+				"RoleBinding.Name", rolebinding.GetName(),
+				"RoleBinding.Namespace", rolebinding.GetNamespace())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.recorder.Eventf(instance,
+				updatedManagedRoleBinding.etype,
+				updatedManagedRoleBinding.reason,
+				"%s: %s/%s",
+				updatedManagedRoleBinding.message,
+				rolebinding.GetNamespace(),
+				rolebinding.GetName())
+		}
 	}
 	return nil
 }
@@ -449,6 +568,71 @@ func (r *ReconcileCertManagerDeployment) reconcileClusterRoleBindings(instance *
 			if err != nil {
 				return err
 			}
+		}
+
+		// cluster role binding exists, check if it needs an update and update it.
+		genSubjectsInterface, err := cmdoputils.Interfacer{Data: clusterRoleBinding.Subjects}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundSubjectsInterface, err := cmdoputils.Interfacer{Data: found.Subjects}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: clusterRoleBinding.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: clusterRoleBinding.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		subjectsMatch := cmdoputils.ObjectsMatch(genSubjectsInterface, foundSubjectsInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+
+		if !(subjectsMatch && labelsMatch) {
+			reqLogger.Info("ClusterRoleBinding already exists, but needs an update.",
+				"ClusterRoleBinding.Name", clusterRoleBinding.GetName(),
+				"HasExpectedSubjects", subjectsMatch,
+				"HasExpectedLabels", labelsMatch)
+			r.recorder.Eventf(instance,
+				updatingManagedClusterRoleBinding.etype,
+				updatingManagedClusterRoleBinding.reason,
+				"%s: %s",
+				updatingManagedClusterRoleBinding.message,
+				clusterRoleBinding.GetName())
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !subjectsMatch {
+				updated.Subjects = clusterRoleBinding.Subjects
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = clusterRoleBinding.GetLabels()
+			}
+
+			reqLogger.Info("Updating ClusterRoleBinding.",
+				"ClusterRoleBinding.Name", clusterRoleBinding.GetName())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.recorder.Eventf(instance,
+				updatedManagedClusterRoleBinding.etype,
+				updatedManagedClusterRoleBinding.reason,
+				"%s: %s",
+				updatedManagedClusterRoleBinding.message,
+				clusterRoleBinding.GetName())
 		}
 	}
 	return nil
@@ -490,6 +674,71 @@ func (r *ReconcileCertManagerDeployment) reconcileClusterRoles(instance *redhatv
 		} else if err != nil {
 			// We had an error when getting the type, and it was not a NotFound error.
 			return err
+		}
+
+		// cluster role exists, check if it needs an update and update it.
+		genRulesInterface, err := cmdoputils.Interfacer{Data: clusterRole.Rules}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundRulesInterface, err := cmdoputils.Interfacer{Data: found.Rules}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: clusterRole.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: clusterRole.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		rulesMatch := cmdoputils.ObjectsMatch(genRulesInterface, foundRulesInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+
+		if !(rulesMatch && labelsMatch) {
+			reqLogger.Info("ClusterRoleBinding already exists, but needs an update.",
+				"ClusterRoleBinding.Name", clusterRole.GetName(),
+				"HasExpectedSubjects", rulesMatch,
+				"HasExpectedLabels", labelsMatch)
+			r.recorder.Eventf(instance,
+				updatingManagedClusterRole.etype,
+				updatingManagedClusterRole.reason,
+				"%s: %s",
+				updatingManagedClusterRole.message,
+				clusterRole.GetName())
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !rulesMatch {
+				updated.Rules = clusterRole.Rules
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = clusterRole.GetLabels()
+			}
+
+			reqLogger.Info("Updating ClusterRole.",
+				"ClusterRole.Name", clusterRole.GetName())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.recorder.Eventf(instance,
+				updatedManagedClusterRoleBinding.etype,
+				updatedManagedClusterRoleBinding.reason,
+				"%s: %s",
+				updatedManagedClusterRoleBinding.message,
+				clusterRole.GetName())
 		}
 	}
 
@@ -760,6 +1009,81 @@ func (r *ReconcileCertManagerDeployment) reconcileWebhooks(instance *redhatv1alp
 			// we had an error, but it was not a NotFound error.
 			return err
 		}
+
+		// Update the mutating webhook if needed
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: mwh.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genAnnotsInterface, err := cmdoputils.Interfacer{Data: mwh.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundAnnotsInterface, err := cmdoputils.Interfacer{Data: found.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genWebhooksInterface, err := cmdoputils.Interfacer{Data: mwh.Webhooks}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		foundWebhooksInterface, err := cmdoputils.Interfacer{Data: found.Webhooks}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		// Check for equality
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
+		webhooksMatch := cmdoputils.ObjectsMatch(genWebhooksInterface, foundWebhooksInterface)
+
+		// If not equal, update.
+		if !(webhooksMatch && labelsMatch && annotsMatch) {
+			reqLogger.Info("MutatingWebhookConfiguration already exists, but needs an update. Updating.",
+				"MutatingWebhookConfiguration.Name", mwh.GetName(),
+				"HasExpectedWebhooks", webhooksMatch,
+				"HasExpectedLabels", labelsMatch,
+				"HasExpectedAnnotations", annotsMatch)
+			r.recorder.Eventf(instance, updatingManagedWebhook.etype, updatingManagedWebhook.reason, "%s: %s", updatingManagedWebhook.message, mwh.GetName())
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !webhooksMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.Webhooks = mwh.Webhooks
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = mwh.GetLabels()
+			}
+
+			if !annotsMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.ObjectMeta.Annotations = mwh.GetAnnotations()
+			}
+
+			reqLogger.Info("Updating MutatingWebhookConfiguration", "MutatingWebhookConfiguration.Name", mwh.GetName())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.recorder.Eventf(instance, updatedManagedWebhook.etype, updatedManagedWebhook.reason, "%s: %s", updatedManagedWebhook.message, mwh.GetName())
+		}
 	}
 
 	vwhs := getter.GetValidatingWebhooks()
@@ -769,6 +1093,7 @@ func (r *ReconcileCertManagerDeployment) reconcileWebhooks(instance *redhatv1alp
 			// we failed to set the controller reference so we return
 			return err
 		}
+
 		found := &adregv1beta1.ValidatingWebhookConfiguration{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: vwh.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
@@ -786,6 +1111,81 @@ func (r *ReconcileCertManagerDeployment) reconcileWebhooks(instance *redhatv1alp
 			// we had an error, but it was not a NotFound error.
 			return err
 		}
+
+		// Update the validating webhook if needed
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: vwh.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genAnnotsInterface, err := cmdoputils.Interfacer{Data: vwh.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+		foundAnnotsInterface, err := cmdoputils.Interfacer{Data: found.Annotations}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		genWebhooksInterface, err := cmdoputils.Interfacer{Data: vwh.Webhooks}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		foundWebhooksInterface, err := cmdoputils.Interfacer{Data: found.Webhooks}.ToJSONInterface()
+		if err != nil {
+			// couldn't convert to an interface, likely means some kind of marshaling problem
+			return err
+		}
+
+		// Check for equality
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
+		webhooksMatch := cmdoputils.ObjectsMatch(genWebhooksInterface, foundWebhooksInterface)
+
+		// If not equal, update.
+		if !(webhooksMatch && labelsMatch && annotsMatch) {
+			reqLogger.Info("ValidatingWebhookConfiguration already exists, but needs an update. Updating.",
+				"ValidatingWebhookConfiguration.Name", vwh.GetName(),
+				"HasExpectedWebhooks", webhooksMatch,
+				"HasExpectedLabels", labelsMatch,
+				"HasExpectedAnnotations", annotsMatch)
+			r.recorder.Eventf(instance, updatingManagedWebhook.etype, updatingManagedWebhook.reason, "%s: %s", updatingManagedWebhook.message, vwh.GetName())
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !webhooksMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.Webhooks = vwh.Webhooks
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = vwh.GetLabels()
+			}
+
+			if !annotsMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.ObjectMeta.Annotations = vwh.GetAnnotations()
+			}
+
+			reqLogger.Info("Updating ValidatingWebhookConfiguration", "ValidatingWebhookConfiguration.Name", vwh.GetName())
+			if err := r.client.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.recorder.Eventf(instance, updatedManagedWebhook.etype, updatedManagedWebhook.reason, "%s: %s", updatedManagedWebhook.message, vwh.GetName())
+		}
 	}
 
 	return nil
@@ -800,7 +1200,6 @@ func (r *ReconcileCertManagerDeployment) reconcileCRDs(instance *redhatv1alpha1.
 	defer reqLogger.Info("Ending reconciliation: CRDs")
 
 	// Get Webhooks for CR
-
 	getter := ResourceGetter{CustomResource: *instance}
 	crds, err := getter.GetCRDs()
 	if err != nil {
@@ -825,9 +1224,10 @@ func (r *ReconcileCertManagerDeployment) reconcileCRDs(instance *redhatv1alpha1.
 			return err
 		}
 
-		// we found an instance of the CRD already. Do the comparison and if they don't match, recreate.
 		// TODO(): possible to add a dry run? Make sure we can update all of them before we start updating any of them?
 		// Otherwise might need to consider adding a rollback.
+
+		// If needed, update CRD.
 		genSpecInterface, err := cmdoputils.Interfacer{Data: crd.Spec}.ToJSONInterface()
 		if err != nil {
 			// couldn't convert to an interface, likely means some kind of marshaling problem
@@ -861,9 +1261,12 @@ func (r *ReconcileCertManagerDeployment) reconcileCRDs(instance *redhatv1alpha1.
 			return err
 		}
 
+		// Check for equality
 		specsMatch := cmdoputils.ObjectsMatch(genSpecInterface, foundSpecInterface)
 		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
 		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
+
+		// If not equal, update.
 		if !(specsMatch && labelsMatch && annotsMatch) {
 			reqLogger.Info("CustomResourceDefinition already exists, but needs an update. Updating.",
 				"CustomResourceDefinition.Name", crd.GetName(),

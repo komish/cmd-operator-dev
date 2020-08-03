@@ -60,7 +60,7 @@ func (r *ResourceGetter) GetValidatingWebhooks() []*adregv1beta1.ValidatingWebho
 
 			validateHooks := webhookData.GetValidatingWebhooks()
 			if len(validateHooks) == 0 {
-				// The componet doesn't have any validating webhooks so it must
+				// The component doesn't have any validating webhooks so it must
 				// have mutating webhooks only
 				return nil
 			}
@@ -120,6 +120,7 @@ func newValidatingWebhook(comp componentry.CertManagerComponent, cr redhatv1alph
 	// based on the component associated with this webhook? Currently this matches
 	// GetResourceName() but do we want to use that in all cases?
 	webhookConfig.ClientConfig.Service.Namespace = componentry.CertManagerDeploymentNamespace
+	hook.Webhooks = append(hook.Webhooks, webhookConfig)
 
 	// if CR customizations, add here (skip currently)
 

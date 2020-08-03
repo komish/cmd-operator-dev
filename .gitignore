@@ -76,5 +76,5 @@ tags
 .history
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### MacOS ###
-#.DS_Store
+.DS_Store
 docs/

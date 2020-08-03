@@ -78,6 +78,20 @@ var (
 		message: "Role does not exist and needs to be created",
 	}
 
+	// updatingManagedRole is an event indicating that a role needs updating
+	updatingManagedRole = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatingRole",
+		message: "Role exists but does not match desired state and needs updating",
+	}
+
+	// updatedManagedrole is an event indicating that a role has been updated
+	updatedManagedRole = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedRole",
+		message: "Role has been successfully updated",
+	}
+
 	// createManagedRoleBinding is an event indicating that a rolebinding is being created
 	createManagedRoleBinding = Event{
 		etype:   EventTypeNormal,
@@ -85,11 +99,39 @@ var (
 		message: "RoleBinding does not exist and needs to be created",
 	}
 
-	// createManagedClusterRole is an event indicating that a cluster role is being created
+	// updatingManagedRoleBinding is an event indicating that a rolebinding needs updating
+	updatingManagedRoleBinding = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatingRoleBinding",
+		message: "RoleBinding exists but does not match desired state and needs updating",
+	}
+
+	// updatedManagedRole Binding is an event indicating that a rolebinding has been updated
+	updatedManagedRoleBinding = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedRoleBinding",
+		message: "RoleBinding has been successfully updated",
+	}
+
+	// createManagedClusterRnole is an event indicating that a cluster role is being created
 	createManagedClusterRole = Event{
 		etype:   EventTypeNormal,
 		reason:  "CreatingClusterRole",
 		message: "Cluster role does not exist and needs to be created",
+	}
+
+	// updatingManagedClusterRole is an event indicating that a role needs updating
+	updatingManagedClusterRole = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatingClusterRole",
+		message: "Cluster role exists but does not match desired state and needs updating",
+	}
+
+	// updatedManagedClusterRole is an event indicating that a role has been updated
+	updatedManagedClusterRole = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedClusterRole",
+		message: "Cluster role has been successfully updated",
 	}
 
 	// createManagedClusterRoleBinding is an event indicating that a cluster rolebinding is being created
@@ -97,6 +139,20 @@ var (
 		etype:   EventTypeNormal,
 		reason:  "CreatingClusterRoleBinding",
 		message: "Cluster rolebinding does not exist and needs to be created",
+	}
+
+	// updatedManagedClusterRoleBinding is an event indicating that a cluster rolebinding needs updating
+	updatingManagedClusterRoleBinding = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatingClusterRoleBinding",
+		message: "ClusterRoleBinding exists but does not match desired state and needs updating",
+	}
+
+	// updatedManagedClusterRoleBinding Binding is an event indicating that a cluster rolebinding has been updated
+	updatedManagedClusterRoleBinding = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedClusterRoleBinding",
+		message: "ClusterRoleBinding has been successfully updated",
 	}
 
 	// createManagedServiceAccount is an event indicating that a service account is being created
@@ -124,7 +180,7 @@ var (
 	updatedManagedService = Event{
 		etype:   EventTypeNormal,
 		reason:  "UpdatedService",
-		message: "Service has been successfully updated.",
+		message: "Service has been successfully updated",
 	}
 
 	// createManagedWebhook is an event indicating that a webhook is being created
@@ -132,5 +188,17 @@ var (
 		etype:   EventTypeNormal,
 		reason:  "CreatingWebhook",
 		message: "Webhook does not exist and needs to be created",
+	}
+	// updatingManagedWebhook is an event indicating that a webhook is being updated
+	updatingManagedWebhook = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatingWebhook",
+		message: "Webhook exists but does not match desired state and needs updating",
+	}
+	// updatedManagedWebhook is an event indicating that a webhook has been updated.
+	updatedManagedWebhook = Event{
+		etype:   EventTypeNormal,
+		reason:  "UpdatedWebhook",
+		message: "Webhook has been successfully updated",
 	}
 )
