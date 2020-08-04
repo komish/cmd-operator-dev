@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/cmdoputils"
+	"github.com/komish/certmanager-operator/pkg/controller/certmanagerdeployment/componentry"
 	"github.com/komish/certmanager-operator/pkg/controller/podrefresher"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -54,6 +56,8 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+	log.Info(fmt.Sprintf("Supported cert-manager versions: %s", cmdoputils.GetSupportedCertManagerVersions(componentry.SupportedVersions)))
+
 }
 
 func init() {

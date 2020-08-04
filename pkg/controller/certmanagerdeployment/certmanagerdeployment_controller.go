@@ -154,7 +154,6 @@ type ReconcileCertManagerDeployment struct {
 func (r *ReconcileCertManagerDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Name", request.Name)
 
-	reqLogger.Info(fmt.Sprintf("Supported cert-manager versions: %s", cmdoputils.GetSupportedCertManagerVersions(componentry.SupportedVersions)))
 	reqLogger.Info("Reconciling CertManagerDeployment")
 	defer reqLogger.Info("Done Reconciling CertManagerDeployment")
 
@@ -290,8 +289,7 @@ func (r *ReconcileCertManagerDeployment) reconcileNamespace(instance *redhatv1al
 
 		reqLogger.Info("Creating namespace", "Namespace.Name", ns.Name)
 		r.recorder.Eventf(instance, createManagedNamespace.etype, createManagedNamespace.reason, "%s: %s", createManagedNamespace.message, ns.GetName())
-		err = r.client.Create(context.TODO(), ns)
-		if err != nil {
+		if err := r.client.Create(context.TODO(), ns); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -320,7 +318,7 @@ func (r *ReconcileCertManagerDeployment) reconcileRoles(instance *redhatv1alpha1
 			return err
 		}
 		found := &rbacv1.Role{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, found)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: role.GetName(), Namespace: role.GetNamespace()}, found)
 
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating role", "Role.Namespace", role.Namespace, "Role.Name", role.Name)
@@ -331,12 +329,12 @@ func (r *ReconcileCertManagerDeployment) reconcileRoles(instance *redhatv1alpha1
 				createManagedRole.message,
 				role.GetNamespace(),
 				role.GetName())
-			err = r.client.Create(context.TODO(), role)
-			if err != nil {
+			if err = r.client.Create(context.TODO(), role); err != nil {
 				return err
 			}
-			// role created successfully, don't requeue
-			// success case return at end of function.
+
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			return err
 		}
@@ -373,7 +371,13 @@ func (r *ReconcileCertManagerDeployment) reconcileRoles(instance *redhatv1alpha1
 				"Role.Namespace", role.GetNamespace(),
 				"HasExpectedRules", rulesMatch,
 				"HasExpectedLabels", labelsMatch)
-			r.recorder.Eventf(instance, updatingManagedRole.etype, updatingManagedRole.reason, "%s: %s/%s", updatingManagedRole.message, role.GetNamespace(), role.GetName())
+			r.recorder.Eventf(instance,
+				updatingManagedRole.etype,
+				updatingManagedRole.reason,
+				"%s: %s/%s",
+				updatingManagedRole.message,
+				role.GetNamespace(),
+				role.GetName())
 
 			// modify the state of the old object to post to API
 			updated := found.DeepCopy()
@@ -414,10 +418,10 @@ func (r *ReconcileCertManagerDeployment) reconcileServiceAccounts(instance *redh
 			return err
 		}
 		found := &corev1.ServiceAccount{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace}, found)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: sa.GetName(), Namespace: sa.GetNamespace()}, found)
 
 		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating service account", "ServiceAccount.Namespace", sa.Namespace, "ServiceAccount.Name", sa.Name)
+			reqLogger.Info("Creating service account", "ServiceAccount.Namespace", sa.GetNamespace(), "ServiceAccount.Name", sa.GetName())
 			r.recorder.Eventf(instance,
 				createManagedServiceAccount.etype,
 				createManagedServiceAccount.reason,
@@ -425,18 +429,18 @@ func (r *ReconcileCertManagerDeployment) reconcileServiceAccounts(instance *redh
 				createManagedServiceAccount.message,
 				sa.GetNamespace(),
 				sa.GetName())
-			err = r.client.Create(context.TODO(), sa)
-			if err != nil {
+			if err := r.client.Create(context.TODO(), sa); err != nil {
 				return err
 			}
 
-			// ServiceAccount created successfully - don't requeue
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
 // reconcileRoleBindings will reconcile the Clusterroles for a given CertManagerDeployment custom resource.
@@ -466,11 +470,16 @@ func (r *ReconcileCertManagerDeployment) reconcileRoleBindings(instance *redhatv
 				createManagedRoleBinding.message,
 				rolebinding.GetNamespace(),
 				rolebinding.GetName())
-			err = r.client.Create(context.TODO(), rolebinding)
-			if err != nil {
+			if err := r.client.Create(context.TODO(), rolebinding); err != nil {
 				return err
 			}
+
+			// successful create. Move onto next iteration.
+			continue
+		} else if err != nil {
+			return err
 		}
+
 		// A rolebinding exists. Update if necessary.
 		// TODO() RoleRef cannot be updated, need to decide if we want to support changes
 		// in which case we need to delete and recreate.
@@ -564,10 +573,15 @@ func (r *ReconcileCertManagerDeployment) reconcileClusterRoleBindings(instance *
 				"%s: %s",
 				createManagedClusterRoleBinding.message,
 				clusterRoleBinding.GetName())
-			err = r.client.Create(context.TODO(), clusterRoleBinding)
-			if err != nil {
+			if err := r.client.Create(context.TODO(), clusterRoleBinding); err != nil {
 				return err
 			}
+
+			// successful create. Move onto next iteration.
+			continue
+		} else if err != nil {
+			// we had an error, but it was not a NotFound error.
+			return err
 		}
 
 		// cluster role binding exists, check if it needs an update and update it.
@@ -670,7 +684,9 @@ func (r *ReconcileCertManagerDeployment) reconcileClusterRoles(instance *redhatv
 			if err := r.client.Create(context.TODO(), clusterRole); err != nil {
 				return err
 			}
-			// clusterRole was created successfully so we don't requeue.
+
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			// We had an error when getting the type, and it was not a NotFound error.
 			return err
@@ -773,6 +789,9 @@ func (r *ReconcileCertManagerDeployment) reconcileDeployments(instance *redhatv1
 			if err := r.client.Create(context.TODO(), dep); err != nil {
 				return err
 			}
+
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			// we had an error, but it was not a NotFound error.
 			return err
@@ -888,6 +907,9 @@ func (r *ReconcileCertManagerDeployment) reconcileServices(instance *redhatv1alp
 			if err := r.client.Create(context.TODO(), svc); err != nil {
 				return err
 			}
+
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			// we had an error, but it was not a NotFound error.
 			return err
@@ -1005,6 +1027,9 @@ func (r *ReconcileCertManagerDeployment) reconcileWebhooks(instance *redhatv1alp
 			if err := r.client.Create(context.TODO(), mwh); err != nil {
 				return err
 			}
+
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			// we had an error, but it was not a NotFound error.
 			return err
@@ -1107,6 +1132,9 @@ func (r *ReconcileCertManagerDeployment) reconcileWebhooks(instance *redhatv1alp
 			if err := r.client.Create(context.TODO(), vwh); err != nil {
 				return err
 			}
+
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			// we had an error, but it was not a NotFound error.
 			return err
@@ -1218,7 +1246,9 @@ func (r *ReconcileCertManagerDeployment) reconcileCRDs(instance *redhatv1alpha1.
 			if err := r.client.Create(context.TODO(), crd); err != nil {
 				return err
 			}
-			continue // we created successfully, move on to the next crd.
+
+			// successful create. Move onto next iteration.
+			continue
 		} else if err != nil {
 			// we had an error, but it was not a NotFound error.
 			return err
@@ -1279,12 +1309,13 @@ func (r *ReconcileCertManagerDeployment) reconcileCRDs(instance *redhatv1alpha1.
 			updated := found.DeepCopy()
 
 			if !specsMatch {
-				// update our local copy with values to keys as defined in our generated spec.
-				err := mergo.Merge(&updated.Spec, crd.Spec, mergo.WithOverride)
-				if err != nil {
-					// Some problem merging the specs
-					return err
-				}
+				// // update our local copy with values to keys as defined in our generated spec.
+				// err := mergo.Merge(&updated.Spec, crd.Spec, mergo.WithOverride)
+				// if err != nil {
+				// 	// Some problem merging the specs
+				// 	return err
+				// }
+				updated.Spec = crd.Spec
 			}
 
 			if !labelsMatch {
