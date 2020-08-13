@@ -1,0 +1,20 @@
+# permissions for end users to view certmanagerdeployments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: certmanagerdeployment-viewer-role
+rules:
+- apiGroups:
+  - operators.redhat.io
+  resources:
+  - certmanagerdeployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.redhat.io
+  resources:
+  - certmanagerdeployments/status
+  verbs:
+  - get

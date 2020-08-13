@@ -1,9 +1,0 @@
-apiVersion: redhat.io/v1alpha1
-kind: CertManagerDeployment
-metadata:
-  name: example-certmanagerdeployment
-spec:
-  identifier: "1234567890"
-  dangerZone:
-    imageOverrides:
-      webhook: "foo/bar/test:v1.2.3"
