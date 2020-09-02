@@ -2,10 +2,11 @@
 package componentry
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/komish/cmd-operator-dev/cmdoputils"
-	adregv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	adregv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,6 +51,7 @@ var (
 		"v0.15.1": true,
 		"v0.15.2": true,
 		"v0.16.0": true,
+		"v1.0.0":  true,
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -197,7 +199,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v0.16.0",
+							Image:           "quay.io/jetstack/cert-manager-controller:v1.0.0",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -225,6 +227,11 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
+	case "v0.16.0":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
+			container.Image = "quay.io/jetstack/cert-manager-controller:v0.16.0"
+		}
 	case "v0.15.2":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
@@ -280,7 +287,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v0.16.0",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.0.0",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -291,6 +298,14 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
+	case "v0.16.0":
+		{
+			// TODO(komish): We have "version" which matches the syntax of tags as of today
+			// might as well collapse down the case statement to a single match case and
+			// just use the value in the version variable.
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.16.0"
+		}
 	case "v0.15.2":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
@@ -315,8 +330,8 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 // the cert-manager webhook.
 func GetComponentForWebhook(version string) CertManagerComponent {
 	// This is for use with webhook objects.
-	var failPolicy adregv1beta1.FailurePolicyType = "Fail"
-	var noneSideEffect adregv1beta1.SideEffectClass = "None"
+	var failPolicy adregv1.FailurePolicyType = "Fail"
+	var noneSideEffect adregv1.SideEffectClass = "None"
 
 	comp := CertManagerComponent{
 		name:               "webhook",
@@ -352,7 +367,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v0.16.0",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v1.0.0",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -364,6 +379,9 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 								},
 								InitialDelaySeconds: 60,
 								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								TimeoutSeconds:      1,
+								FailureThreshold:    3,
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -381,6 +399,9 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 								},
 								InitialDelaySeconds: 5,
 								PeriodSeconds:       5,
+								SuccessThreshold:    1,
+								TimeoutSeconds:      1,
+								FailureThreshold:    3,
 							},
 						},
 					},
@@ -403,11 +424,15 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 				annotations: map[string]string{
 					"cert-manager.io/inject-ca-from-secret": "cert-manager/cert-manager-webhook-ca",
 				},
-				mutatingWebhooks: []adregv1beta1.MutatingWebhook{
+				mutatingWebhooks: []adregv1.MutatingWebhook{
 					{
 						Name: "webhook.cert-manager.io",
-						ClientConfig: adregv1beta1.WebhookClientConfig{
-							Service: &adregv1beta1.ServiceReference{
+						AdmissionReviewVersions: []string{ // incompat with v0.16.0
+							"v1",
+							"v1beta1",
+						},
+						ClientConfig: adregv1.WebhookClientConfig{
+							Service: &adregv1.ServiceReference{
 								Name: "cert-manager-webhook", // pull this from other resources?
 								// Namespace is pulled from CR
 								Path: cmdoputils.GetStringPointer("/mutate"),
@@ -415,10 +440,10 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 						},
 						FailurePolicy: &failPolicy,
 						SideEffects:   &noneSideEffect,
-						Rules: []adregv1beta1.RuleWithOperations{
+						Rules: []adregv1.RuleWithOperations{
 							{
-								Operations: []adregv1beta1.OperationType{adregv1beta1.Create, adregv1beta1.Update},
-								Rule: adregv1beta1.Rule{
+								Operations: []adregv1.OperationType{adregv1.Create, adregv1.Update},
+								Rule: adregv1.Rule{
 									Resources:   []string{"*/*"},
 									APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
 									APIVersions: []string{"*"},
@@ -427,11 +452,15 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 						},
 					},
 				},
-				validatingWebhooks: []adregv1beta1.ValidatingWebhook{
+				validatingWebhooks: []adregv1.ValidatingWebhook{
 					{
 						Name: "webhook.cert-manager.io",
-						ClientConfig: adregv1beta1.WebhookClientConfig{
-							Service: &adregv1beta1.ServiceReference{
+						AdmissionReviewVersions: []string{ // incompat with v0.16.0
+							"v1",
+							"v1beta1",
+						},
+						ClientConfig: adregv1.WebhookClientConfig{
+							Service: &adregv1.ServiceReference{
 								Name: "cert-manager-webhook", // pull this from other resources?
 								// namespace is set in a context where the CR exists.
 								Path: cmdoputils.GetStringPointer("/validate"),
@@ -439,10 +468,10 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 						},
 						FailurePolicy: &failPolicy,
 						SideEffects:   &noneSideEffect,
-						Rules: []adregv1beta1.RuleWithOperations{
+						Rules: []adregv1.RuleWithOperations{
 							{
-								Operations: []adregv1beta1.OperationType{adregv1beta1.Create, adregv1beta1.Update},
-								Rule: adregv1beta1.Rule{
+								Operations: []adregv1.OperationType{adregv1.Create, adregv1.Update},
+								Rule: adregv1.Rule{
 									APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
 									APIVersions: []string{"*"},
 									Resources:   []string{"*/*"},
@@ -470,20 +499,35 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v0.15.2":
+	case "v0.16.0", "v0.15.2", "v0.15.1", "v0.15.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
-			container.Image = "quay.io/jetstack/cert-manager-webhook:v0.15.2"
-		}
-	case "v0.15.1":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0]
-			container.Image = "quay.io/jetstack/cert-manager-webhook:v0.15.1"
-		}
-	case "v0.15.0":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0]
-			container.Image = "quay.io/jetstack/cert-manager-webhook:v0.15.0"
+			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-webhook:%s", version)
+			container.LivenessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/livez",
+						Port:   intstr.IntOrString{IntVal: 6080},
+						Scheme: corev1.URISchemeHTTP,
+					},
+				},
+				InitialDelaySeconds: 60,
+				PeriodSeconds:       10,
+			}
+			container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/healthz",
+						Port:   intstr.IntOrString{IntVal: 6080},
+						Scheme: corev1.URISchemeHTTP,
+					},
+				},
+				InitialDelaySeconds: 5,
+				PeriodSeconds:       5,
+			}
+			// TODO(komish): These versions technically require adregv1beta1 instead of adregv1
+			// identify a way to convert between the two and accept the various versions in
+			// The WebhookData struct for backwards compatibility if necessary.
 		}
 	}
 

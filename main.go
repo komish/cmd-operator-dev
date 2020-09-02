@@ -20,7 +20,9 @@ import (
 	"flag"
 	"os"
 
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -43,8 +45,11 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	// using CustomResourceDefinitions
+	// using CustomResourceDefinitions/v1beta1
 	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
+
+	// using CustomResourceDefinitions/v1
+	utilruntime.Must(apiextv1.AddToScheme(scheme))
 
 	utilruntime.Must(operatorsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))

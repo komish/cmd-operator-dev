@@ -11,7 +11,8 @@ import (
 	"github.com/komish/cmd-operator-dev/cmdoputils"
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
 
-	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	// apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 )
 
@@ -20,8 +21,8 @@ var (
 )
 
 // GetCRDs returns a CustomResourceDefinitions for a given CertManagerDeployment
-func (r *ResourceGetter) GetCRDs() ([]*apiextv1beta1.CustomResourceDefinition, error) {
-	res := make([]*apiextv1beta1.CustomResourceDefinition, 0)
+func (r *ResourceGetter) GetCRDs() ([]*apiextv1.CustomResourceDefinition, error) {
+	res := make([]*apiextv1.CustomResourceDefinition, 0)
 
 	// Get CertManager version from the r.CustomResource
 	version := cmdoputils.CRVersionOrDefaultVersion(
@@ -32,19 +33,19 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1beta1.CustomResourceDefinition, e
 	crds, err := getCRDListForCertManagerVersion(version)
 
 	if err != nil {
-		return []*apiextv1beta1.CustomResourceDefinition{}, err
+		return []*apiextv1.CustomResourceDefinition{}, err
 	}
 
 	// Check that all files exist at the expected path.
 	if ok, missing := allFilesExist(crds); !ok {
-		return []*apiextv1beta1.CustomResourceDefinition{}, fmt.Errorf("unable to find CRDs for version %s. Missing %s", version, missing)
+		return []*apiextv1.CustomResourceDefinition{}, fmt.Errorf("unable to find CRDs for version %s. Missing %s", version, missing)
 	}
 
 	// Attempt to deserialize them all to CRD
 	for _, crdPath := range crds {
 		c, err := getCRDFromFile(crdPath)
 		if err != nil {
-			return []*apiextv1beta1.CustomResourceDefinition{}, err
+			return []*apiextv1.CustomResourceDefinition{}, err
 		}
 
 		res = append(res, c)
@@ -57,7 +58,7 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1beta1.CustomResourceDefinition, e
 // getCRDListForCertManagerVersion returns the CRDs for a requested version of cert-manager.
 func getCRDListForCertManagerVersion(version string) ([]string, error) {
 	switch version {
-	case "v0.15.0", "v0.15.1", "v0.15.2", "v0.16.0":
+	case "v0.15.0", "v0.15.1", "v0.15.2", "v0.16.0", "v1.0.0":
 		return addPathPrefixToPathList(version, []string{
 			"cert-manager.io_issuers_crd.yaml",
 			"cert-manager.io_certificates_crd.yaml",
@@ -87,7 +88,7 @@ func allFilesExist(files []string) (bool, string) {
 }
 
 // getCRDFromFile will read a CRD YAML file from disk and return the CRD as an object.
-func getCRDFromFile(filePath string) (*apiextv1beta1.CustomResourceDefinition, error) {
+func getCRDFromFile(filePath string) (*apiextv1.CustomResourceDefinition, error) {
 	// get from disk
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -106,7 +107,7 @@ func getCRDFromFile(filePath string) (*apiextv1beta1.CustomResourceDefinition, e
 	}
 
 	// ensure we got a CustomResourceDefinition
-	crd, ok := obj.(*apiextv1beta1.CustomResourceDefinition)
+	crd, ok := obj.(*apiextv1.CustomResourceDefinition)
 	if !ok {
 		return nil, fmt.Errorf("Expected CustomResourceDefinition but got type %T from file at path %s", obj, filePath)
 	}

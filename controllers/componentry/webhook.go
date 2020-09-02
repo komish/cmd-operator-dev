@@ -1,15 +1,15 @@
 package componentry
 
 import (
-	adregv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	adregv1 "k8s.io/api/admissionregistration/v1"
 )
 
 // WebhookData contains the webhook mappings for a given CertManagerComponent.
 type WebhookData struct {
 	name               string
 	annotations        map[string]string
-	mutatingWebhooks   []adregv1beta1.MutatingWebhook
-	validatingWebhooks []adregv1beta1.ValidatingWebhook
+	mutatingWebhooks   []adregv1.MutatingWebhook
+	validatingWebhooks []adregv1.ValidatingWebhook
 }
 
 // GetName returns the name of the webhook being described by the WebhookData object.
@@ -27,12 +27,12 @@ func (wd *WebhookData) GetAnnotations() map[string]string {
 }
 
 // GetMutatingWebhooks returns the mutating webhooks for the WebhookData object.
-func (wd *WebhookData) GetMutatingWebhooks() []adregv1beta1.MutatingWebhook {
+func (wd *WebhookData) GetMutatingWebhooks() []adregv1.MutatingWebhook {
 	return wd.mutatingWebhooks
 }
 
 // GetValidatingWebhooks returns validating webhooks for the WebhookData object.
-func (wd *WebhookData) GetValidatingWebhooks() []adregv1beta1.ValidatingWebhook {
+func (wd *WebhookData) GetValidatingWebhooks() []adregv1.ValidatingWebhook {
 	return wd.validatingWebhooks
 }
 

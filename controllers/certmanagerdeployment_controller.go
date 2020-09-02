@@ -24,11 +24,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
 
+	adregv1 "k8s.io/api/admissionregistration/v1"
 	adregv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -935,7 +936,7 @@ func (r *CertManagerDeploymentReconciler) reconcileWebhooks(instance *operatorsv
 			// we failed to set the controller reference so we return
 			return err
 		}
-		found := &adregv1beta1.MutatingWebhookConfiguration{}
+		found := &adregv1.MutatingWebhookConfiguration{}
 		err := r.Get(context.TODO(), types.NamespacedName{Name: mwh.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating MutatingWebhookConfiguration", "MutatingWebhookConfiguration.Name", mwh.GetName())
@@ -1040,7 +1041,7 @@ func (r *CertManagerDeploymentReconciler) reconcileWebhooks(instance *operatorsv
 			return err
 		}
 
-		found := &adregv1beta1.ValidatingWebhookConfiguration{}
+		found := &adregv1.ValidatingWebhookConfiguration{}
 		err := r.Get(context.TODO(), types.NamespacedName{Name: vwh.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating ValidatingWebhookConfiguration", "ValidatingWebhookConfiguration.Name", vwh.GetName())
@@ -1158,7 +1159,7 @@ func (r *CertManagerDeploymentReconciler) reconcileCRDs(instance *operatorsv1alp
 	}
 
 	for _, crd := range crds {
-		found := &apiextv1beta1.CustomResourceDefinition{}
+		found := &apiextv1.CustomResourceDefinition{}
 		err := r.Get(context.TODO(), types.NamespacedName{Name: crd.GetName()}, found)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating CustomResourceDefinition", "CustomResourceDefinition.Name", crd.GetName())

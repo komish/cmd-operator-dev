@@ -6,13 +6,13 @@ import (
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	adregv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	adregv1 "k8s.io/api/admissionregistration/v1"
 )
 
 // GetMutatingWebhooks returns MutatingWebhookConfiguration objects for a given CertManagerDeployment
 // custom resource.
-func (r *ResourceGetter) GetMutatingWebhooks() []*adregv1beta1.MutatingWebhookConfiguration {
-	var hooks []*adregv1beta1.MutatingWebhookConfiguration
+func (r *ResourceGetter) GetMutatingWebhooks() []*adregv1.MutatingWebhookConfiguration {
+	var hooks []*adregv1.MutatingWebhookConfiguration
 	for _, componentGetterFunc := range componentry.Components {
 		component := componentGetterFunc(
 			cmdoputils.CRVersionOrDefaultVersion(
@@ -44,8 +44,8 @@ func (r *ResourceGetter) GetMutatingWebhooks() []*adregv1beta1.MutatingWebhookCo
 
 // GetValidatingWebhooks returns ValidatingWebhookConfiguration objects for a given CertManagerDeployment
 // custom resource.
-func (r *ResourceGetter) GetValidatingWebhooks() []*adregv1beta1.ValidatingWebhookConfiguration {
-	var hooks []*adregv1beta1.ValidatingWebhookConfiguration
+func (r *ResourceGetter) GetValidatingWebhooks() []*adregv1.ValidatingWebhookConfiguration {
+	var hooks []*adregv1.ValidatingWebhookConfiguration
 	for _, componentGetterFunc := range componentry.Components {
 		component := componentGetterFunc(
 			cmdoputils.CRVersionOrDefaultVersion(
@@ -78,15 +78,15 @@ func (r *ResourceGetter) GetValidatingWebhooks() []*adregv1beta1.ValidatingWebho
 // newMutatingWebhook returns a Webhook object for a given CertManagerComponent
 // and CertManagerDeployment CustomResource
 func newMutatingWebhook(comp componentry.CertManagerComponent, cr operatorsv1alpha1.CertManagerDeployment,
-	webhookName string, webhookConfig adregv1beta1.MutatingWebhook, annotations map[string]string) *adregv1beta1.MutatingWebhookConfiguration {
+	webhookName string, webhookConfig adregv1.MutatingWebhook, annotations map[string]string) *adregv1.MutatingWebhookConfiguration {
 	// get initial structure
-	hook := adregv1beta1.MutatingWebhookConfiguration{
+	hook := adregv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        webhookName,
 			Labels:      cr.GetLabels(),
 			Annotations: annotations,
 		},
-		Webhooks: []adregv1beta1.MutatingWebhook{},
+		Webhooks: []adregv1.MutatingWebhook{},
 	}
 
 	// set clientConfig namespace value that is placeheld
@@ -104,15 +104,15 @@ func newMutatingWebhook(comp componentry.CertManagerComponent, cr operatorsv1alp
 // newValidatingWebhook returns a Webhook object for a given CertManagerComponent
 // and CertManagerDeployment CustomResource
 func newValidatingWebhook(comp componentry.CertManagerComponent, cr operatorsv1alpha1.CertManagerDeployment,
-	webhookName string, webhookConfig adregv1beta1.ValidatingWebhook, annotations map[string]string) *adregv1beta1.ValidatingWebhookConfiguration {
+	webhookName string, webhookConfig adregv1.ValidatingWebhook, annotations map[string]string) *adregv1.ValidatingWebhookConfiguration {
 	// get initial structure
-	hook := adregv1beta1.ValidatingWebhookConfiguration{
+	hook := adregv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        webhookName,
 			Labels:      cr.GetLabels(),
 			Annotations: annotations,
 		},
-		Webhooks: []adregv1beta1.ValidatingWebhook{},
+		Webhooks: []adregv1.ValidatingWebhook{},
 	}
 
 	// set clientConfig namespace value that is placeheld
