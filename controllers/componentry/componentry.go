@@ -47,11 +47,8 @@ var (
 	// Changes to these values also need to be mirrored in the CertManageDeploymentSpec generation
 	// validation annotations.
 	SupportedVersions = map[string]bool{
-		"v0.15.0": true,
-		"v0.15.1": true,
-		"v0.15.2": true,
-		"v0.16.0": true,
-		"v1.0.0":  true,
+		"v1.0.0": true,
+		"v1.0.1": true,
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -199,7 +196,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v1.0.0",
+							Image:           "quay.io/jetstack/cert-manager-controller:v1.0.1",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -227,25 +224,10 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
-	case "v0.16.0":
+	case "v1.0.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
-			container.Image = "quay.io/jetstack/cert-manager-controller:v0.16.0"
-		}
-	case "v0.15.2":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
-			container.Image = "quay.io/jetstack/cert-manager-controller:v0.15.2"
-		}
-	case "v0.15.1":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
-			container.Image = "quay.io/jetstack/cert-manager-controller:v0.15.1"
-		}
-	case "v0.15.0":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
-			container.Image = "quay.io/jetstack/cert-manager-controller:v0.15.0"
+			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-controller:%s", version)
 		}
 	}
 
@@ -287,7 +269,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.0.0",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.0.1",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -298,28 +280,10 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v0.16.0":
-		{
-			// TODO(komish): We have "version" which matches the syntax of tags as of today
-			// might as well collapse down the case statement to a single match case and
-			// just use the value in the version variable.
-			container := &comp.deployment.Template.Spec.Containers[0]
-			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.16.0"
-		}
-	case "v0.15.2":
+	case "v1.0.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
-			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.15.2"
-		}
-	case "v0.15.1":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0]
-			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.15.1"
-		}
-	case "v0.15.0":
-		{
-			container := &comp.deployment.Template.Spec.Containers[0]
-			container.Image = "quay.io/jetstack/cert-manager-cainjector:v0.15.0"
+			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-cainjector:%s", version)
 		}
 	}
 	return comp
@@ -367,7 +331,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v1.0.0",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v1.0.1",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -427,7 +391,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 				mutatingWebhooks: []adregv1.MutatingWebhook{
 					{
 						Name: "webhook.cert-manager.io",
-						AdmissionReviewVersions: []string{ // incompat with v0.16.0
+						AdmissionReviewVersions: []string{
 							"v1",
 							"v1beta1",
 						},
@@ -455,7 +419,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 				validatingWebhooks: []adregv1.ValidatingWebhook{
 					{
 						Name: "webhook.cert-manager.io",
-						AdmissionReviewVersions: []string{ // incompat with v0.16.0
+						AdmissionReviewVersions: []string{
 							"v1",
 							"v1beta1",
 						},
@@ -499,35 +463,10 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v0.16.0", "v0.15.2", "v0.15.1", "v0.15.0":
+	case "v1.0.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-webhook:%s", version)
-			container.LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/livez",
-						Port:   intstr.IntOrString{IntVal: 6080},
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 60,
-				PeriodSeconds:       10,
-			}
-			container.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/healthz",
-						Port:   intstr.IntOrString{IntVal: 6080},
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 5,
-				PeriodSeconds:       5,
-			}
-			// TODO(komish): These versions technically require adregv1beta1 instead of adregv1
-			// identify a way to convert between the two and accept the various versions in
-			// The WebhookData struct for backwards compatibility if necessary.
 		}
 	}
 

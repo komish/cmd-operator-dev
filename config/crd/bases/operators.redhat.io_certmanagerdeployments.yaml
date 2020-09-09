@@ -81,11 +81,8 @@ spec:
               description: Version indicates the version of CertManager to deploy.
                 The operator only supports a subset of versions.
               enum:
-              - v0.15.0
-              - v0.15.1
-              - v0.15.2
-              - v0.16.0
               - v1.0.0
+              - v1.0.1
               type: string
           type: object
         status:

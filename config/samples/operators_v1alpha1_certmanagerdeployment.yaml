@@ -3,4 +3,4 @@ kind: CertManagerDeployment
 metadata:
   name: production
 spec:
-  version: "v0.16.0"
+  version: "v1.0.0"

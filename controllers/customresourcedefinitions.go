@@ -58,7 +58,7 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1.CustomResourceDefinition, error)
 // getCRDListForCertManagerVersion returns the CRDs for a requested version of cert-manager.
 func getCRDListForCertManagerVersion(version string) ([]string, error) {
 	switch version {
-	case "v0.15.0", "v0.15.1", "v0.15.2", "v0.16.0", "v1.0.0":
+	case "v1.0.0", "v1.0.1":
 		return addPathPrefixToPathList(version, []string{
 			"cert-manager.io_issuers_crd.yaml",
 			"cert-manager.io_certificates_crd.yaml",
