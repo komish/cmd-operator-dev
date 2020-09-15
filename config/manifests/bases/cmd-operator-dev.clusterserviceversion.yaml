@@ -1,0 +1,74 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+    operators.operatorframework.io/builder: operator-sdk-v1.0.0
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
+  name: cmd-operator-dev.vX.Y.Z
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: CertManagerDeployment is the Schema for the certmanagerdeployments API
+      displayName: Cert-Manager Deployment
+      kind: CertManagerDeployment
+      name: certmanagerdeployments.operators.redhat.io
+      resources:
+      - kind: CustomResourceDefinition
+        name: certificaterequests.cert-manager.io
+        version: v1
+      - kind: CustomResourceDefinition
+        name: certificates.cert-manager.io
+        version: v1
+      - kind: CustomResourceDefinition
+        name: challenges.acme.cert-manager.io
+        version: v1
+      - kind: CustomResourceDefinition
+        name: clusterissuers.cert-manager.io
+        version: v1
+      - kind: CustomResourceDefinition
+        name: issuers.cert-manager.io
+        version: v1
+      - kind: CustomResourceDefinition
+        name: orders.acme.cert-manager.io
+        version: v1
+      version: v1alpha1
+  description: The CertManagerDeployment Operator facilitates the installation and lifecycle of the cert-manager stack, which itself automates the management and issuance of TLS certificates from various issuing sources.
+  displayName: CertManagerDeployment Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: false
+    type: AllNamespaces
+  keywords:
+  - TLS
+  - secrets
+  - security
+  - certificates
+  - cert-manager
+  links:
+  - name: Cert-Manager Documentation
+    url: https://cert-manager.io/docs/
+  - name : Cert-Manager Development
+    url: https://github.com/jetstack/cert-manager
+  maintainers:
+  - email: placeholder@example.com
+    name: placeholder
+  maturity: alpha
+  provider:
+    name: Placeholder Provider Here
+  version: 0.0.0
