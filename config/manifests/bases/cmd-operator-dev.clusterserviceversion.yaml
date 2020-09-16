@@ -46,7 +46,7 @@ spec:
       deployments: null
     strategy: ""
   installModes:
-  - supported: false
+  - supported: true
     type: OwnNamespace
   - supported: true
     type: SingleNamespace
@@ -63,7 +63,7 @@ spec:
   links:
   - name: Cert-Manager Documentation
     url: https://cert-manager.io/docs/
-  - name : Cert-Manager Development
+  - name: Cert-Manager Development
     url: https://github.com/jetstack/cert-manager
   maintainers:
   - email: placeholder@example.com

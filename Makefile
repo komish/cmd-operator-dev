@@ -15,6 +15,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
+# Namespace to use when running via PackageManifests
+PM_NAMESPACE ?= "default"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -118,3 +120,15 @@ bundle: manifests
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+# Generate packagemanifests
+.PHONY: packagemanifests
+packagemanifests: 
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate packagemanifests --version $(VERSION)
+
+# Run using packagemanifests
+.PHONY: run-packagemanifests
+run-packagemanifests:
+	operator-sdk run packagemanifests packagemanifests --version $(VERSION) --install-mode SingleNamespace=$(PM_NAMESPACE)

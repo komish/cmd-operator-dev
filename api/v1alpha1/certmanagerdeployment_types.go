@@ -68,7 +68,6 @@ type CertManagerDeploymentStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
-
 // +operator-sdk:csv:customresourcedefinitions:displayName="Cert-Manager Deployment"
 // +operator-sdk:csv:customresourcedefinitions:resources={{CustomResourceDefinition,v1,certificates.cert-manager.io},{CustomResourceDefinition,v1,clusterissuers.cert-manager.io},{CustomResourceDefinition,v1,issuers.cert-manager.io},{CustomResourceDefinition,v1,certificaterequests.cert-manager.io},{CustomResourceDefinition,v1,orders.acme.cert-manager.io},{CustomResourceDefinition,v1,challenges.acme.cert-manager.io}}
 
