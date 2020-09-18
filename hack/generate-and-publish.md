@@ -81,16 +81,20 @@ make docker-push IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_IMAGE_NAME}:v1.0
 
 ## Use the index image in a cluster
 
-This is just a matter of referring to the index image as a CatalogSource. Assumes OLM.
+This is just a matter of referring to the index image as a CatalogSource. Assumes OLM is installed in a test cluster.
+
+Once this catalog source is installed successfully, the operator should be visible as a `packagemanifest`, or via the OpenShift embedded OperatorHub.
 
 ```bash
 cat <<EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
-  name: ${OPERATOR_IMG}-catalog
+  name: ${OPERATOR_IMG}-catalog-test
   namespace: default
 spec:
+  displayName: "Experimental Operators"
+  publisher: "Placeholder Labs"
   sourceType: grpc
   image: ${REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_IMAGE_NAME}:v1.0.0
 EOF
