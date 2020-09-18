@@ -14,6 +14,8 @@ COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
 COPY cmdoputils/ cmdoputils/
+COPY v1.0.0/ v1.0.0/
+COPY v1.0.1/ v1.0.1/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go

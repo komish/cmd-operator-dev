@@ -16,7 +16,9 @@ IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 # Namespace to use when running via PackageManifests
-PM_NAMESPACE ?= "default"
+PM_NAMESPACE ?= default
+# Project name used for git tagging
+PROJECT_NAME ?= operator
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -139,3 +141,8 @@ packagemanifests:
 .PHONY: run-packagemanifests
 run-packagemanifests:
 	operator-sdk run packagemanifests packagemanifests --version $(VERSION) --install-mode SingleNamespace=$(PM_NAMESPACE)
+
+# Create a git tag
+.PHONE: git-tag
+git-tag:
+	git tag --annotate "v$(VERSION)" -m "$(PROJECT_NAME) version $(VERSION)"

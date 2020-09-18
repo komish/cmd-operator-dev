@@ -6,22 +6,22 @@ These help inform the Makefile-specific variables.
 
 ```bash
 # the registry of choice
-export REGISTRY="quay.io"
+export REGISTRY=quay.io
 
 # Namespace in Container Registry
-export REGISTRY_NAMESPACE="placeholder"
+export REGISTRY_NAMESPACE=placeholder
 
 # Image of the controller
-export OPERATOR_IMG="cmd-operator"
+export OPERATOR_IMG=cmd-operator
 
 # Image of the operator bundle
-export OPERATOR_BUNDLE_IMG="${OPERATOR_IMG}-bundle"
+export OPERATOR_BUNDLE_IMG=${OPERATOR_IMG}-bundle
 
 # Operator Release Version
-export OPERATOR_VERSION="0.0.1"
+export OPERATOR_VERSION=0.0.1
 
 # Index Image Name
-export INDEX_IMAGE_NAME="${OPERATOR_IMG}-index"
+export INDEX_IMAGE_NAME=${OPERATOR_IMG}-index
 ```
 
 ## Generate Bundle and Make Bundle Container Image
@@ -127,3 +127,19 @@ oc delete catalogsource cmd-operator-dev-ocs
 # This version will vary depending on your version variable
 oc delete csv "cmd-operator-dev.v${OPERATOR_VERSION}"
 ```
+
+## Preparing a Release
+
+Once the controller image has been tested and release, tag the release using `git`.
+
+```bash
+make git-tag VERSION=$OPERATOR_VERSION PROJECT_NAME=$OPERATOR_IMG
+```
+
+Push the changes to git.
+
+```bash
+git push --tags
+```
+
+From the GitHub UI, create a release pointing to the tag and upload relevant assets (e.g. bundle for this release, install manifests for standalone install, etc)
