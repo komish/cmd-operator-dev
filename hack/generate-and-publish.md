@@ -24,7 +24,7 @@ export OPERATOR_VERSION=0.0.1
 export INDEX_IMAGE_NAME=${OPERATOR_IMG}-index
 ```
 
-## Generate Bundle and Make Bundle Container Image
+## Generate Bundle, Bundle Container Image, and Deploy to Container Registry
 
 From project directory, use `make` to generate the bundle components.
 
@@ -43,8 +43,15 @@ make bundle-build \
 	BUNDLE_IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_BUNDLE_IMG}:v${OPERATOR_VERSION}"
 ```
 
+Push the bundle up to the container registry:
 
-## Generate and Publish Controller and Bundle Container Images
+```bash
+make docker-push \
+	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_BUNDLE_IMG}:v${OPERATOR_VERSION}"
+```
+
+
+## Generate Controller Image, and Deploy to Container Registry
 
 From project directory, use `make` to generate controller container image
 
@@ -59,14 +66,9 @@ make docker-push \
 	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_IMG}:v${OPERATOR_VERSION}"
 ```
 
-Do the same for the bundle container image.
-
-```bash
-make docker-push \
-	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_BUNDLE_IMG}:v${OPERATOR_VERSION}"
-```
-
 ## Generate an index image using OPM (assumes docker as the container tool)
+
+Assuming a bundle has been pushed upstream, create an index with that bundle and then push it to a container registry.
 
 TODO: add a make target for this
 

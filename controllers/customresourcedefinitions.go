@@ -4,9 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-
 	"os"
-	"strings"
+	"path"
 
 	"github.com/komish/cmd-operator-dev/cmdoputils"
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
@@ -117,8 +116,8 @@ func getCRDFromFile(filePath string) (*apiextv1.CustomResourceDefinition, error)
 
 func addPathPrefixToPathList(pathPrefix string, paths []string) []string {
 	new := make([]string, 0)
-	for _, path := range paths {
-		new = append(new, strings.Join([]string{crdPathOrWD(), pathPrefix, path}, "/"))
+	for _, p := range paths {
+		new = append(new, path.Join(crdPathOrWD(), pathPrefix, p))
 	}
 	return new
 }
