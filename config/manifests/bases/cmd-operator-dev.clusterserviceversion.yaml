@@ -39,8 +39,8 @@ spec:
   description: The CertManagerDeployment Operator facilitates the installation and lifecycle of the cert-manager stack, which itself automates the management and issuance of TLS certificates from various issuing sources.
   displayName: CertManagerDeployment Operator
   icon:
-  - base64data: "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBkPSJNMzI4IDI1NmMwIDM5LjgtMzIuMiA3Mi03MiA3MnMtNzItMzIuMi03Mi03MiAzMi4yLTcyIDcyLTcyIDcyIDMyLjIgNzIgNzJ6bTEwNC03MmMtMzkuOCAwLTcyIDMyLjItNzIgNzJzMzIuMiA3MiA3MiA3MiA3Mi0zMi4yIDcyLTcyLTMyLjItNzItNzItNzJ6bS0zNTIgMGMtMzkuOCAwLTcyIDMyLjItNzIgNzJzMzIuMiA3MiA3MiA3MiA3Mi0zMi4yIDcyLTcyLTMyLjItNzItNzItNzJ6Ii8+PC9zdmc+"
-    mediatype: "image/svg+xml"
+  - base64data: PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBkPSJNMzI4IDI1NmMwIDM5LjgtMzIuMiA3Mi03MiA3MnMtNzItMzIuMi03Mi03MiAzMi4yLTcyIDcyLTcyIDcyIDMyLjIgNzIgNzJ6bTEwNC03MmMtMzkuOCAwLTcyIDMyLjItNzIgNzJzMzIuMiA3MiA3MiA3MiA3Mi0zMi4yIDcyLTcyLTMyLjItNzItNzItNzJ6bS0zNTIgMGMtMzkuOCAwLTcyIDMyLjItNzIgNzJzMzIuMiA3MiA3MiA3MiA3Mi0zMi4yIDcyLTcyLTMyLjItNzItNzItNzJ6Ii8+PC9zdmc+
+    mediatype: image/svg+xml
   install:
     spec:
       deployments: null
