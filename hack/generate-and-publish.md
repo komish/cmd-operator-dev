@@ -24,6 +24,21 @@ export OPERATOR_VERSION=0.0.1
 export INDEX_IMAGE_NAME=${OPERATOR_IMG}-index
 ```
 
+## Generate Controller Image, and Deploy to Container Registry
+
+From project directory, use `make` to generate controller container image
+
+```bash
+make docker-build \
+	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_IMG}:v${OPERATOR_VERSION}"
+
+# alternate if you want to skip the make test target
+# docker build . -t "${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_IMG}:v${OPERATOR_VERSION}"
+
+make docker-push \
+	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_IMG}:v${OPERATOR_VERSION}"
+```
+
 ## Generate Bundle, Bundle Container Image, and Deploy to Container Registry
 
 From project directory, use `make` to generate the bundle components.
@@ -50,21 +65,6 @@ make docker-push \
 	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_BUNDLE_IMG}:v${OPERATOR_VERSION}"
 ```
 
-
-## Generate Controller Image, and Deploy to Container Registry
-
-From project directory, use `make` to generate controller container image
-
-```bash
-make docker-build \
-	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_IMG}:v${OPERATOR_VERSION}"
-
-# alternate if you want to skip the make test target
-# docker build . -t "${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_IMG}:v${OPERATOR_VERSION}"
-
-make docker-push \
-	IMG="${REGISTRY}/${REGISTRY_NAMESPACE}/${OPERATOR_IMG}:v${OPERATOR_VERSION}"
-```
 
 ## Generate an index image using OPM (assumes docker as the container tool)
 
