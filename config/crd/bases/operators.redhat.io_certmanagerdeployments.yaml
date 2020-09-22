@@ -69,14 +69,6 @@ spec:
                     are controller, webhook, and cainjector.
                   type: object
               type: object
-            imagePullPolicy:
-              description: ImagePullPolicy is the policy to apply to all CertManagerComponent
-                deployments.
-              enum:
-              - Always
-              - Never
-              - IfNotPresent
-              type: string
             version:
               description: Version indicates the version of CertManager to deploy.
                 The operator only supports a subset of versions.

@@ -40,10 +40,6 @@ type CertManagerDeploymentSpec struct {
 	// for by the operator, but can be configured in edge cases if needed.
 	// +optional
 	DangerZone DangerZone `json:"dangerZone,omitempty"`
-	// ImagePullPolicy is the policy to apply to all CertManagerComponent deployments.
-	// +kubebuilder:validation:Enum=Always;Never;IfNotPresent
-	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // CertManagerDeploymentStatus defines the observed state of CertManagerDeployment

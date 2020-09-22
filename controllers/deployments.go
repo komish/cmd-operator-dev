@@ -16,9 +16,8 @@ import (
 type DeploymentCustomizations struct {
 	// ContainerImage is a container image to be used for a component
 	// in the format /registry/container-image:tag
-	ContainerImage  string
-	ImagePullPolicy corev1.PullPolicy
-	ContainerArgs   *[]string
+	ContainerImage string
+	ContainerArgs  *[]string
 }
 
 // GetDeployments returns Deployment objects for a given CertManagerDeployment
@@ -47,13 +46,6 @@ func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManage
 	if !reflect.DeepEqual(imageOverrides, map[string]string{}) {
 		// imageOverrides is not empty, get the image value for this component.
 		dc.ContainerImage = imageOverrides[comp.GetName()]
-	}
-
-	// check if pull policy has been overridden.
-	pullPolicyOverride := r.CustomResource.Spec.ImagePullPolicy
-	var emptyPullPolicy corev1.PullPolicy
-	if !reflect.DeepEqual(pullPolicyOverride, emptyPullPolicy) {
-		dc.ImagePullPolicy = pullPolicyOverride
 	}
 
 	// check if the any container arguments are being overridden.
@@ -98,11 +90,6 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 		deploy.Spec.Template.Spec.Containers[0].Image = cstm.ContainerImage
 	}
 
-	// If the CR contains a customized image pull policy: override our deployment
-	if cstm.ImagePullPolicy != "" {
-		deploy.Spec.Template.Spec.Containers[0].ImagePullPolicy = cstm.ImagePullPolicy
-	}
-
 	// If the CR containers customized arguments: override our deployment.
 	if cstm.ContainerArgs != nil {
 		deploy.Spec.Template.Spec.Containers[0].Args = *cstm.ContainerArgs
@@ -121,11 +108,5 @@ func setServiceAccount(deploy *appsv1.Deployment, sa string) *appsv1.Deployment 
 // setContainerImage will update a container object's image.
 func setContainerImage(container *corev1.Container, image string) *corev1.Container {
 	container.Image = image
-	return container
-}
-
-// setContainerImage will update a container object's image.
-func setImagePullPolicy(container *corev1.Container, policy corev1.PullPolicy) *corev1.Container {
-	container.ImagePullPolicy = policy
 	return container
 }
