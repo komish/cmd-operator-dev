@@ -8,3 +8,4 @@ On new cert-manager release:
   * Change defaults
   * Transition adjustments for previous supported default version.
 * Update `getCRDListForCertManagerVersion` Func in **controllers/customresourcedefinitions.go**
+* Update CertManagerDeployment type markers such that they reflect new supported versions in **api/v1alpha1/certmanagerdeployment_types.go**.

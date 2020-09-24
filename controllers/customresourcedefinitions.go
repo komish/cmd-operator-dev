@@ -57,7 +57,7 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1.CustomResourceDefinition, error)
 // getCRDListForCertManagerVersion returns the CRDs for a requested version of cert-manager.
 func getCRDListForCertManagerVersion(version string) ([]string, error) {
 	switch version {
-	case "v1.0.0", "v1.0.1":
+	case "v1.0.0", "v1.0.1", "v1.0.2":
 		return addPathPrefixToPathList(version, []string{
 			"cert-manager.io_issuers_crd.yaml",
 			"cert-manager.io_certificates_crd.yaml",
@@ -71,7 +71,6 @@ func getCRDListForCertManagerVersion(version string) ([]string, error) {
 		// if an unsupported version is requested.
 		return []string{}, errors.New("requested version is unsupported by this operator")
 	}
-
 }
 
 // allFilesExist returns true if the files exist on disk at the specified path.
