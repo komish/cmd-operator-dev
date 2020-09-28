@@ -1,6 +1,6 @@
 apiVersion: operators.redhat.io/v1alpha1
 kind: CertManagerDeployment
 metadata:
-  name: production
+  name: cluster
 spec:
   version: "v1.0.2"

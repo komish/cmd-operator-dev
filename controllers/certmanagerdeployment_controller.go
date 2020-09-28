@@ -71,8 +71,8 @@ func (r *CertManagerDeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Resu
 
 	// This is a makeshift check to ensure that only a single instance of cert-manager is installed by the operator.
 	// TODO(): Improve this check.
-	if req.Name != "production" {
-		r.Log.Info("Canceling Reconciliation. Only one CertManagerDeployment named production is allowed", "request name", req.Name)
+	if req.Name != "cluster" {
+		r.Log.Info("Canceling Reconciliation. Only one CertManagerDeployment named cluster is allowed", "request name", req.Name)
 		return ctrl.Result{}, nil
 	}
 
