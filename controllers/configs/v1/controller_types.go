@@ -23,7 +23,6 @@ type CertManagerControllerFlags struct {
 	ACMEHTTP01SolverMemoryResourceLimits   string          `json:"acme-http01-solver-resource-limits-memory"`
 	ACMEHTTP01SolverCPURequestRequests     string          `json:"acme-http01-solver-resource-request-cpu"`
 	ACMEHTTP01SolverMemoryResourceRequests string          `json:"acme-http01-solver-resource-request-memory"`
-	AddDirectoryHeaders                    bool            `json:"add_dir_header"`
 	AutoCertificateAnnotations             []string        `json:"auto-certificate-annotations"`
 	ClusterIssuerAmbientCredentials        bool            `json:"cluster-issuer-ambient-credentials"`
 	ClusterResourceNamespace               string          `json:"cluster-resource-namespace"`
