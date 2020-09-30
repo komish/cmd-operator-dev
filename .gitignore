@@ -25,3 +25,6 @@ bin
 
 # envtest binaries
 testbin/
+
+# Nobody likes DS_Store
+.DS_Store
