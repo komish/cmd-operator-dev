@@ -182,11 +182,7 @@ func GetComponentForController(version string) CertManagerComponent {
 					Containers: []corev1.Container{
 						{
 							Name: "cert-manager",
-							Args: []string{
-								"--v=2",
-								"--cluster-resource-namespace=$(POD_NAMESPACE)",
-								"--leader-election-namespace=$(POD_NAMESPACE)",
-							},
+							Args: []string{}, // container args are generated
 							Env: []corev1.EnvVar{
 								{
 									Name: "POD_NAMESPACE",
@@ -256,10 +252,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 					Containers: []corev1.Container{
 						{
 							Name: "cert-manager",
-							Args: []string{
-								"--v=2",
-								"--leader-election-namespace=$(POD_NAMESPACE)",
-							},
+							Args: []string{}, // container args are generated
 							Env: []corev1.EnvVar{
 								{
 									Name: "POD_NAMESPACE",
@@ -315,13 +308,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 					Containers: []corev1.Container{
 						{
 							Name: "cert-manager",
-							Args: []string{
-								"--v=2",
-								"--secure-port=10250",
-								"--dynamic-serving-ca-secret-namespace=$(POD_NAMESPACE)",
-								"--dynamic-serving-ca-secret-name=cert-manager-webhook-ca",
-								"--dynamic-serving-dns-names=cert-manager-webhook,cert-manager-webhook.cert-manager,cert-manager-webhook.cert-manager.svc",
-							},
+							Args: []string{}, // container args are generated
 							Env: []corev1.EnvVar{
 								{
 									Name: "POD_NAMESPACE",

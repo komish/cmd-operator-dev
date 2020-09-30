@@ -22,6 +22,7 @@ import (
 
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -143,7 +144,7 @@ type DangerZone struct {
 	// Omitting this results in the default container arguments the operator has
 	// configured for each component.
 	// +optional
-	ContainerArgOverrides map[string][]string `json:"containerArgOverrides,omitempty"`
+	ContainerArgOverrides map[string]runtime.RawExtension `json:"containerArgOverrides,omitempty"`
 }
 
 // ManagedDeploymentWithConditions defines a deployment namespaced name and conditions associated with that deployment.
