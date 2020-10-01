@@ -32,7 +32,7 @@ type TraceLocation struct {
 }
 
 func (t *TraceLocation) String() string {
-	return fmt.Sprintf("%s:%s", t.file, t.line)
+	return fmt.Sprintf("%s:%v", t.file, t.line)
 }
 
 func (t *TraceLocation) IsSet() bool {
