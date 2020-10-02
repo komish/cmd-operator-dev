@@ -7,31 +7,28 @@ var (
 	// in this package.
 	DefaultConfigsFor = map[string][]byte{
 		controller: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io
-		kind: CertManagerControllerConfig
-		flags:
-			v: 2
-			cluster-resource-namespace: $(POD_NAMESPACE)
-			leader-election-namespace: $(POD_NAMESPACE)
-		`),
+kind: CertManagerControllerConfig
+flags:
+  v: 2
+  cluster-resource-namespace: $(POD_NAMESPACE)
+  leader-election-namespace: $(POD_NAMESPACE)`),
 
 		webhook: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io
-		kind: CertManagerWebhookConfig
-		flags:
-		  v: 2
-		  secure-port: 10250
-		  dynamic-serving-ca-secret-namespace: $(POD_NAMESPACE)
-		  dynamic-serving-ca-secret-name: cert-manager-webhook-ca
-		  dynamic-serving-dns-names: 
-			- cert-manager-webhook
-			- cert-manager-webhook.cert-manager
-			- cert-manager-webhook.cert-manager.svc
-		`),
+kind: CertManagerWebhookConfig
+flags:
+  v: 2
+  secure-port: 10250
+  dynamic-serving-ca-secret-namespace: $(POD_NAMESPACE)
+  dynamic-serving-ca-secret-name: cert-manager-webhook-ca
+  dynamic-serving-dns-names: 
+  - cert-manager-webhook
+  - cert-manager-webhook.cert-manager
+  - cert-manager-webhook.cert-manager.svc`),
 
 		cainjector: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io
-		kind: CertManagerCAInjectorConfig
-		flags:
-		  v: 2
-		  leader-election-namespace: $(POD_NAMESPACE)
-		`),
+kind: CertManagerCAInjectorConfig
+flags:
+  v: 2
+  leader-election-namespace: $(POD_NAMESPACE)`),
 	}
 )
