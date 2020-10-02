@@ -3,8 +3,6 @@ package v1
 import (
 	"fmt"
 	"time"
-
-	"k8s.io/klog"
 )
 
 // loggingFlags appear to be coming from klog. These should be universal for
@@ -20,9 +18,9 @@ type loggingFlags struct {
 	LogToSTDERR         bool          `json:"logtostderr"`
 	SkipHeaders         bool          `json:"skip_headers"`
 	SkipLogHeaders      bool          `json:"skip_log_headers"`
-	STDERRThreshold     severity      `json:"stderrthreshold"`
-	VerbosityLevel      klog.Level    `json:"v"`
-	VModule             string        `json:"vmodule"` // accepting string because original type ModuleSpec is unexported from klog
+	STDERRThreshold     int32         `json:"stderrthreshold"` // similar type to klog unexported severity type
+	VerbosityLevel      int32         `json:"v"`               // similar type to klog exported Level type
+	VModule             string        `json:"vmodule"`         // accepting string because original type ModuleSpec is unexported from klog
 }
 
 // traceLocation is an emulation of the unexported struct traceLocation in klog https://github.com/kubernetes/klog/blob/master/klog.go#L325
@@ -38,6 +36,3 @@ func (t *TraceLocation) String() string {
 func (t *TraceLocation) IsSet() bool {
 	return t.line > 0
 }
-
-// severity is an emulation of the unexported struct severity in klog https://github.com/kubernetes/klog/blob/master/klog.go#L98
-type severity int32

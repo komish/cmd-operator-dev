@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	e "errors"
 	"fmt"
 
@@ -760,6 +761,9 @@ func (r *CertManagerDeploymentReconciler) reconcileDeployments(instance *operato
 		}
 
 		specsMatch := cmdoputils.ObjectsMatch(genSpecInterface, foundSpecInterface)
+		d0, _ := json.MarshalIndent(genSpecInterface, "", "    ")
+		d1, _ := json.MarshalIndent(genSpecInterface, "", "    ")
+		fmt.Println(string(d0), string(d1))
 		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
 		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
 

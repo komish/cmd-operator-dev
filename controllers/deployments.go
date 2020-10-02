@@ -141,26 +141,35 @@ func argSliceOf(data []byte, schema runtime.Object) []string {
 
 	// get the object as a map so we can pull the flag data
 	var objectMap map[string]interface{}
-	json.Unmarshal(data, &objectMap)        // unhandled error
-	f, _ := json.Marshal(objectMap["flag"]) //unhandled error
+	json.Unmarshal(data, &objectMap) // unhandled error
+
+	f, _ := json.Marshal(objectMap["flags"]) //unhandled error
 	// get the flags as a map
 	var flagMap map[string]interface{}
 	json.Unmarshal(f, &flagMap) //unhandled error
 
 	for k, v := range flagMap {
 		switch z := v.(type) {
-		case int, string, bool:
-			args = append(args, k, fmt.Sprintf("%v", z))
-		case time.Duration:
-			args = append(args, k, z.String())
+		case int, string, bool, float64, time.Duration:
+			// TODO(): time.Duration may not work here as expected. Need
+			args = append(args, fmt.Sprintf("--%s=%v", k, z))
 		case certmanagerconfigsv1.TraceLocation:
 			// if this is not set, we don't want to set this argument because it could break things
+			// BUG() this may not work as expected if the type assertion doesn't work as we expect
+			// due to json marshaling
 			if z.IsSet() {
-				args = append(args, k, z.String())
+				args = append(args, fmt.Sprintf("--%s=%v", k, z))
 			}
-		case []string:
-			val := strings.Join(z, ",")
-			args = append(args, k, val)
+		case []interface{}:
+			// marshaling turns json arrays into []interface, but the config types only accept []strings
+			s := make([]string, len(z))
+			for i, v := range z {
+				s[i] = fmt.Sprintf("%s", v)
+			}
+			val := strings.Join(s, ",")
+			args = append(args, fmt.Sprintf("--%s=%v", k, val))
+		default:
+			// TODO implement some kind of logger here
 		}
 	}
 
