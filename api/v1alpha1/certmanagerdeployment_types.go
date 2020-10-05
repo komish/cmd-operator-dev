@@ -144,6 +144,7 @@ type DangerZone struct {
 	// Omitting this results in the default container arguments the operator has
 	// configured for each component.
 	// +optional
+	// +kubebuilder:validation:XPreserveUnknownFields
 	ContainerArgOverrides map[string]runtime.RawExtension `json:"containerArgOverrides,omitempty"`
 }
 

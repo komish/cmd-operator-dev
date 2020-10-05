@@ -60,6 +60,7 @@ spec:
                     results in the default container arguments the operator has configured
                     for each component.
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 imageOverrides:
                   additionalProperties:
                     type: string

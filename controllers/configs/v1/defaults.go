@@ -6,14 +6,14 @@ var (
 	// (e.g. comp.GetName()). Default Configs are byte that look like runtime.Object and are defined
 	// in this package.
 	DefaultConfigsFor = map[string][]byte{
-		controller: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io
+		controller: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io/v1
 kind: CertManagerControllerConfig
 flags:
   v: 2
   cluster-resource-namespace: $(POD_NAMESPACE)
   leader-election-namespace: $(POD_NAMESPACE)`),
 
-		webhook: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io
+		webhook: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io/v1
 kind: CertManagerWebhookConfig
 flags:
   v: 2
@@ -25,7 +25,7 @@ flags:
   - cert-manager-webhook.cert-manager
   - cert-manager-webhook.cert-manager.svc`),
 
-		cainjector: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io
+		cainjector: []byte(`apiVersion: certmanagerconfigs.operators.redhat.io/v1
 kind: CertManagerCAInjectorConfig
 flags:
   v: 2

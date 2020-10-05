@@ -60,12 +60,12 @@ func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManage
 	dc.ContainerArgs = r.CustomResource.Spec.DangerZone.ContainerArgOverrides[comp.GetName()]
 	// // check if the any container arguments are being overridden.
 
-	// if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides; argOverrides != nil {
-	// 	// at least one component's container arg is overriden
-	// 	if args := argOverrides[comp.GetName()]; args != nil {
-	// 		dc.ContainerArgs = &args
-	// 	}
-	// }
+	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides; argOverrides != nil {
+		// at least one component's container arg is overriden
+		if args, ok := argOverrides[comp.GetName()]; ok {
+			dc.ContainerArgs = args
+		}
+	}
 
 	return dc
 }
@@ -102,19 +102,21 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 	}
 
 	// If the CR containers customized arguments: override our deployment.
-	// THIS IS WHAT NEEDS FIXING
-	// if cstm.ContainerArgs != nil {
-	// 	deploy.Spec.Template.Spec.Containers[0].Args = *cstm.ContainerArgs
-	// }
 	cfg := certmanagerconfigsv1.GetEmptyConfigFor(comp.GetName())
 	specialMergeRules := map[string]resourcemerge.MergeFunc{}
 	// TODO: handling this error requires some refactor, but we probably need to do it.
-	result, _ := resourcemerge.MergePrunedProcessConfig(
+	result, err := resourcemerge.MergePrunedProcessConfig(
 		cfg,
 		specialMergeRules,
 		certmanagerconfigsv1.DefaultConfigsFor[comp.GetName()],
 		cstm.ContainerArgs.Raw,
 	)
+
+	if err != nil {
+		// we don't log this at the moment, but we should
+		// for now we just run a default configuration
+		result = certmanagerconfigsv1.DefaultConfigsFor[comp.GetName()]
+	}
 
 	deploy.Spec.Template.Spec.Containers[0].Args = argSliceOf(result, certmanagerconfigsv1.GetEmptyConfigFor(comp.GetName()))
 
