@@ -33,7 +33,7 @@ type CertManagerControllerFlags struct {
 	DNS01RecursiveNameservers              []string      `json:"dns01-recursive-nameservers"`
 	DNS01RecursiveNameserversOnly          bool          `json:"dns01-recursive-nameservers-only"`
 	EnableCertificateOwnerRefs             bool          `json:"enable-certificate-owner-ref"`
-	FeatureGates                           string        `json:"feature-gates"` // supposed to be map[string]bool
+	FeatureGates                           []string      `json:"feature-gates"` // supposed to be map[string]bool
 	IssuerAmbientCredentials               bool          `json:"issuer-ambient-credentials"`
 	LeaderElect                            bool          `json:"leader-elect"`
 	LeaderElectLeaseDuration               time.Duration `json:"leader-election-lease-duration"`

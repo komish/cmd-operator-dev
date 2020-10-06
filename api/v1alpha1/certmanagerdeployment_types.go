@@ -136,6 +136,7 @@ type DangerZone struct {
 	// in format /registry/image-name:tag. Valid keys are controller, webhook,
 	// and cainjector.
 	// +optional
+	// +kubebuilder:validation:Enum=controller;webhook;cainjector
 	ImageOverrides map[string]string `json:"imageOverrides,omitempty"`
 	// ContainerArgOverrides allows the full overriding of container arguments for
 	// each component. These arguments must holistically cover what's needed for
@@ -144,8 +145,43 @@ type DangerZone struct {
 	// Omitting this results in the default container arguments the operator has
 	// configured for each component.
 	// +optional
-	// +kubebuilder:validation:XPreserveUnknownFields
-	ContainerArgOverrides map[string]runtime.RawExtension `json:"containerArgOverrides,omitempty"`
+	ContainerArgOverrides ContainerArgOverrides `json:"containerArgOverrides,omitempty"`
+}
+
+type ContainerArgOverrides struct {
+	// Controller contains flags to change for the controller pod. The keys
+	// for this object should be the identical to the controller pod's flags, without
+	// the leading dashes.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Controller runtime.RawExtension `json:"controller,omitempty"`
+
+	// Webhook contains flags to change for the webhook pod. The keys
+	// for this object should be the identical to the webhook pod's flags, without
+	// the leading dashes.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Webhook runtime.RawExtension `json:"webhook,omitempty"`
+
+	// CAInjector contains flags to change for the cainjector pod. The keys
+	// for this object should be the identical to the cainjector pod's flags, without
+	// the leading dashes.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	CAInjector runtime.RawExtension `json:"cainjector,omitempty"`
+}
+
+// GetOverridesFor returns the right information from the ContainerArgOverrides struct
+// based on the string representation of the struct's fields.
+func (cao *ContainerArgOverrides) GetOverridesFor(comp string) *runtime.RawExtension {
+	switch comp {
+	case "controller":
+		return &cao.Controller
+	case "webhook":
+		return &cao.Webhook
+	case "cainjector":
+		return &cao.CAInjector
+	default:
+		// should never hit this, the api should block other values
+		return nil
+	}
 }
 
 // ManagedDeploymentWithConditions defines a deployment namespaced name and conditions associated with that deployment.

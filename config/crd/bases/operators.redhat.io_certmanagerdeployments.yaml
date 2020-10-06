@@ -51,22 +51,42 @@ spec:
                 if needed.
               properties:
                 containerArgOverrides:
-                  additionalProperties:
-                    type: object
                   description: ContainerArgOverrides allows the full overriding of
                     container arguments for each component. These arguments must holistically
                     cover what's needed for the CertManagerComponent to run as it
                     replaces the containers[].args key in its entirety. Omitting this
                     results in the default container arguments the operator has configured
                     for each component.
+                  properties:
+                    cainjector:
+                      description: CAInjector contains flags to change for the cainjector
+                        pod. The keys for this object should be the identical to the
+                        cainjector pod's flags, without the leading dashes.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    controller:
+                      description: Controller contains flags to change for the controller
+                        pod. The keys for this object should be the identical to the
+                        controller pod's flags, without the leading dashes.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    webhook:
+                      description: Webhook contains flags to change for the webhook
+                        pod. The keys for this object should be the identical to the
+                        webhook pod's flags, without the leading dashes.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
                   type: object
-                  x-kubernetes-preserve-unknown-fields: true
                 imageOverrides:
                   additionalProperties:
                     type: string
                   description: ImageOverrides is a map of CertManagerComponent names
                     to image strings in format /registry/image-name:tag. Valid keys
                     are controller, webhook, and cainjector.
+                  enum:
+                  - controller
+                  - webhook
+                  - cainjector
                   type: object
               type: object
             version:

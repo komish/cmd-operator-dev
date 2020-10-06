@@ -56,15 +56,12 @@ func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManage
 		dc.ContainerImage = imageOverrides[comp.GetName()]
 	}
 
-	// Get the container argument overrides that the user specified
-	dc.ContainerArgs = r.CustomResource.Spec.DangerZone.ContainerArgOverrides[comp.GetName()]
-	// // check if the any container arguments are being overridden.
-
-	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides; argOverrides != nil {
-		// at least one component's container arg is overriden
-		if args, ok := argOverrides[comp.GetName()]; ok {
-			dc.ContainerArgs = args
-		}
+	// check if the any container arguments are being overridden.
+	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides.GetOverridesFor(comp.GetName()); argOverrides != nil {
+		dc.ContainerArgs = *argOverrides
+	} else {
+		// give an empty one as a precaution
+		dc.ContainerArgs = runtime.RawExtension{Raw: []byte{}}
 	}
 
 	return dc
@@ -103,13 +100,19 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 
 	// If the CR containers customized arguments: override our deployment.
 	cfg := certmanagerconfigsv1.GetEmptyConfigFor(comp.GetName())
+	// we don't have any custom merge rules to consider
 	specialMergeRules := map[string]resourcemerge.MergeFunc{}
+	// we have to lay out the flag overriding to be in the right format, we don't expect the
+	// user to add the flags key
+	f := overrideConfig{Flags: cstm.ContainerArgs}
+	userDefinedArgs, _ := json.Marshal(f)
+
 	// TODO: handling this error requires some refactor, but we probably need to do it.
 	result, err := resourcemerge.MergePrunedProcessConfig(
 		cfg,
 		specialMergeRules,
 		certmanagerconfigsv1.DefaultConfigsFor[comp.GetName()],
-		cstm.ContainerArgs.Raw,
+		userDefinedArgs,
 	)
 
 	if err != nil {
@@ -176,4 +179,8 @@ func argSliceOf(data []byte, schema runtime.Object) []string {
 	}
 
 	return args
+}
+
+type overrideConfig struct {
+	Flags runtime.RawExtension `json:"flags"`
 }
