@@ -7,6 +7,7 @@ package cmdoputils
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 
 	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,9 +108,12 @@ func LabelsAndAnnotationsMatch(src, dest metav1.Object) bool {
 // keys as defined by the src exist and have the same value. Input objects are expected
 // be of the same type, or effectively be the same format when marshaled to JSON.
 func ObjectsMatch(src, dest interface{}) bool {
+	// TODO: This could use some logging.
 	switch typedSrc := src.(type) {
 	case map[string]interface{}:
+		// if x is a map[string]interface{}, y should also be
 		x := typedSrc
+		// convert y, or we assume they're not the same if it fails
 		y, ok := dest.(map[string]interface{})
 		if !ok {
 			return false
@@ -132,14 +136,23 @@ func ObjectsMatch(src, dest interface{}) bool {
 		}
 	case []interface{}:
 		x := typedSrc
+		// if x is a []interface{}, y should also be
 		y, ok := dest.([]interface{})
+		// convert y, or we assume they're not the same if it fails
 		if !ok {
 			return false
 		}
 		for i, v := range x {
 			switch v.(type) {
-			case string, float64, bool:
-				return reflect.DeepEqual(x, y)
+			case string:
+				// this needs to be sorted before we can DeepEqual
+				sx := getSortedStringSliceOf(x)
+				sy := getSortedStringSliceOf(y)
+				return reflect.DeepEqual(sx, sy)
+			case float64:
+				sx := getSortedFloat64SliceOf(x)
+				sy := getSortedFloat64SliceOf(y)
+				return reflect.DeepEqual(sx, sy)
 			case map[string]interface{}:
 				if ok := ObjectsMatch(x[i], y[i]); !ok {
 					return false
@@ -158,7 +171,6 @@ func ObjectsMatch(src, dest interface{}) bool {
 		// we don't know what the input type is.
 		return false
 	}
-
 	return true
 }
 
@@ -182,4 +194,24 @@ func (i Interfacer) ToJSONInterface() (interface{}, error) {
 		return nil, err
 	}
 	return iface, nil
+}
+
+func getSortedStringSliceOf(data []interface{}) []string {
+	res := make([]string, len(data))
+	for i, v := range data {
+		res[i] = v.(string)
+	}
+
+	sort.Strings(res)
+	return res
+}
+
+func getSortedFloat64SliceOf(data []interface{}) []float64 {
+	res := make([]float64, len(data))
+	for i, v := range data {
+		res[i] = v.(float64)
+	}
+
+	sort.Float64s(res)
+	return res
 }
