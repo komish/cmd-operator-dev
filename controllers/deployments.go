@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
 	"github.com/komish/cmd-operator-dev/cmdoputils"
@@ -153,18 +152,14 @@ func argSliceOf(data []byte, schema runtime.Object) []string {
 	var flagMap map[string]interface{}
 	json.Unmarshal(f, &flagMap) //unhandled error
 
+	// TODO: consider enforcing a more-correct argument structure
+	// by allowing the config types to reference keys as custom types
+	// and then doing some type assertions against map[string]interface{}
+	// when they get marshaled as JSON objects.
 	for k, v := range flagMap {
 		switch z := v.(type) {
-		case int, string, bool, float64, time.Duration:
-			// TODO(): time.Duration may not work here as expected. Need
+		case string, bool, float64:
 			args = append(args, fmt.Sprintf("--%s=%v", k, z))
-		case certmanagerconfigsv1.TraceLocation:
-			// if this is not set, we don't want to set this argument because it could break things
-			// BUG() this may not work as expected if the type assertion doesn't work as we expect
-			// due to json marshaling
-			if z.IsSet() {
-				args = append(args, fmt.Sprintf("--%s=%v", k, z))
-			}
 		case []interface{}:
 			// marshaling turns json arrays into []interface, but the config types only accept []strings
 			s := make([]string, len(z))
