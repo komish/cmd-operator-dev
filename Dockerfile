@@ -25,6 +25,8 @@ WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY v1.0.0/ v1.0.0/
 COPY v1.0.1/ v1.0.1/
+COPY v1.0.2/ v1.0.2/
+COPY v1.0.3/ v1.0.3/
 USER nonroot:nonroot
 
 ENTRYPOINT ["/manager"]

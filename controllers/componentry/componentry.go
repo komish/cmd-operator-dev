@@ -50,6 +50,7 @@ var (
 		"v1.0.0": true,
 		"v1.0.1": true,
 		"v1.0.2": true,
+		"v1.0.3": true,
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -193,7 +194,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v1.0.2",
+							Image:           "quay.io/jetstack/cert-manager-controller:v1.0.3",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -221,7 +222,7 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
-	case "v1.0.0", "v1.0.1":
+	case "v1.0.0", "v1.0.1", "v1.0.2":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-controller:%s", version)
@@ -263,7 +264,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.0.2",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.0.3",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -274,7 +275,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v1.0.0", "v1.0.1":
+	case "v1.0.0", "v1.0.1", "v1.0.2":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-cainjector:%s", version)
@@ -319,7 +320,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v1.0.2",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v1.0.3",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -451,7 +452,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v1.0.0", "v1.0.1":
+	case "v1.0.0", "v1.0.1", "v1.0.2":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-webhook:%s", version)
