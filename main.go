@@ -57,8 +57,8 @@ func init() {
 }
 
 func main() {
-	controllerNamePodRefresher := "PodRefresher"
-	controllerNameCertManagerDeployment := "CertManagerDeployment"
+	controllerNamePodRefresher := "podrefresh-controller"
+	controllerNameCertManagerDeployment := "certmanagerdeployment-controller"
 	var metricsAddr string
 	var enableLeaderElection bool
 	var enablePodRefreshController bool

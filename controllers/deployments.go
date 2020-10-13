@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+
 	"reflect"
 	"strings"
 
@@ -56,10 +57,13 @@ func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManage
 	}
 
 	// check if the any container arguments are being overridden.
-	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides.GetOverridesFor(comp.GetName()); argOverrides != nil {
+	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides.GetOverridesFor(comp.GetName()); argOverrides.Raw != nil {
 		dc.ContainerArgs = *argOverrides
 	} else {
-		// give an empty one as a precaution
+		// if argOverrides.Raw is nil, that implies the user did not set the override for this component.
+		// If we pass a nil value to this, we end up setting our arguments to null which sets the container
+		// args to null, causing no args to get set (not even defaults).
+		// Instead, set it to an empty byte slice.
 		dc.ContainerArgs = runtime.RawExtension{Raw: []byte{}}
 	}
 
@@ -97,8 +101,6 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 		deploy.Spec.Template.Spec.Containers[0].Image = cstm.ContainerImage
 	}
 
-	// If the CR containers customized arguments: override our deployment.
-	cfg := certmanagerconfigsv1.GetEmptyConfigFor(comp.GetName())
 	// we don't have any custom merge rules to consider
 	specialMergeRules := map[string]resourcemerge.MergeFunc{}
 	// we have to lay out the flag overriding to be in the right format, we don't expect the
@@ -108,10 +110,10 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 
 	// TODO: handling this error requires some refactor, but we probably need to do it.
 	result, err := resourcemerge.MergePrunedProcessConfig(
-		cfg,
-		specialMergeRules,
-		certmanagerconfigsv1.DefaultConfigsFor[comp.GetName()],
-		userDefinedArgs,
+		certmanagerconfigsv1.GetEmptyConfigFor(comp.GetName()), // the schema
+		specialMergeRules, // we have no merge rules
+		certmanagerconfigsv1.DefaultConfigsFor[comp.GetName()], // our default
+		userDefinedArgs, // user overridden flags
 	)
 
 	if err != nil {
