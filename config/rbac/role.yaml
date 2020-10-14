@@ -138,6 +138,7 @@ rules:
   verbs:
   - bind
   - create
+  - escalate
   - get
   - list
   - patch
