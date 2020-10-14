@@ -87,8 +87,8 @@ This is just a matter of referring to the index image as a CatalogSource. Assume
 
 Once this catalog source is installed successfully, the operator should be visible as a `packagemanifest`, or via the OpenShift embedded OperatorHub.
 
-```bash
-cat <<EOF | oc apply -f -
+```yaml
+oc apply -f - <<EOF
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
@@ -99,6 +99,28 @@ spec:
   publisher: "Placeholder Labs"
   sourceType: grpc
   image: ${REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_IMAGE_NAME}:v1.0.0
+EOF
+```
+
+## Subscribe to the operator as provided by the index image
+Change the namespace accordingly:
+- `metadata.namespace` to where you want the operator installed
+- `spec.sourceNamespace` to wherever the catalogSource was installed in the cluster (i.e. "default" if you used the above catalogsource)
+
+```yaml
+oc apply -f - <<EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cmd-operator-dev
+  namespace: default
+spec:
+  channel: alpha
+  installPlanApproval: Automatic
+  name: cmd-operator-dev
+  source: cmd-operator-catalog-test
+  sourceNamespace: default
+  startingCSV: cmd-operator-dev.${OPERATOR_VERSION}
 EOF
 ```
 
