@@ -143,6 +143,20 @@ run-packagemanifests:
 	operator-sdk run packagemanifests packagemanifests --version $(VERSION) --install-mode SingleNamespace=$(PM_NAMESPACE)
 
 # Create a git tag
-.PHONE: git-tag
+.PHONY: git-tag
 git-tag:
 	git tag --annotate "v$(VERSION)" -m "$(PROJECT_NAME) version $(VERSION)"
+
+
+# Delete cert-manager crds from a cluster. The operator does not delete these when uninstalled
+# so that the operator can be pulled out without impact to the running environment which is important
+# for upgrade scenarios.
+.PHONY: clean-certmanager-crds
+clean-certmanager-crds:
+	kubectl delete crds \
+		certificaterequests.cert-manager.io \
+		certificates.cert-manager.io \
+		clusterissuers.cert-manager.io \
+		issuers.cert-manager.io \
+		challenges.acme.cert-manager.io \
+		orders.acme.cert-manager.io
