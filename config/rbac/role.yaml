@@ -117,6 +117,12 @@ rules:
 - apiGroups:
   - operators.redhat.io
   resources:
+  - certmanagerdeployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - operators.redhat.io
+  resources:
   - certmanagerdeployments/status
   verbs:
   - get
