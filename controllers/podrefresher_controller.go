@@ -67,6 +67,9 @@ type PodRefreshReconciler struct {
 
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=list;update;watch;
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=list;update;watch;
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;update;watch;
 
 // Reconcile watches for secrets and if a secret is a certmanager secret, it checks for deployments, statefulsets,
 // and daemonsets that may be using the secret and triggers a re-rollout of those objects.
