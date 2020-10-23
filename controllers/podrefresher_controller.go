@@ -28,6 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"encoding/json"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,21 +39,13 @@ import (
 )
 
 const (
-	certManagerIssuerKindAnnotation             string = "cert-manager.io/issuer-kind"
-	certManagerDeploymentAllowRestartAnnotation string = "certmanagerdeployment.redhat.io/allow-restart"
-	certManagerDeploymentRestartLabel           string = "certmanagerdeployment.redhat.io/time-restarted"
+	secretResourceVersionAnnotation string = "certmanagerdeployment.redhat.io/secret-resource-versions"
+	issuerKindAnnotation            string = "cert-manager.io/issuer-kind"
+	allowRestartAnnotation          string = "certmanagerdeployment.redhat.io/allow-restart"
+	timeRestartedLabel              string = "certmanagerdeployment.redhat.io/time-restarted"
 )
 
 var (
-	// PodRefresherPredicateFuncs help guide the events we want the podrefresh-controller
-	// to activate upon.
-	PodRefresherPredicateFuncs = predicate.Funcs{
-		UpdateFunc:  predicate.ResourceVersionChangedPredicate{}.Update,
-		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
-		GenericFunc: func(e event.GenericEvent) bool { return false },
-	}
-
 	// Eventing helpers
 	refresh        = podRefresherEvent{reason: "PodRefresh", message: "Associated pods restarted as a cert-manager secret used by the object has changed."}
 	refreshFailure = podRefresherEvent{reason: "PodRefreshFailure", message: "Unable to restart pods associated with object due to an API error."}
@@ -95,12 +89,12 @@ func (r *PodRefreshReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	// If secret doesn't have cert-manager annotations, stop reconciliing it. This is the failsafe to prevent
 	// a bounce on a resource that is not a cert-manager-related secret.
+	// DEPRECATED(2020-10-23): This exists as a safety precuation, but predicates should be filtering these out. Remove in the future.
 	ants := secret.GetAnnotations()
-	if _, ok := ants[certManagerIssuerKindAnnotation]; !ok {
+	if _, ok := ants[issuerKindAnnotation]; !ok {
 		r.Log.Info("Secret is not a cert-manager issued certificate. Disregarding.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 		return reconcile.Result{}, nil
 	}
-
 	r.Log.Info("Secret is a cert-manager issued certificate. Checking deployments/statefulsets/daemonsets using Secret.", "Secret.Name", secret.GetName(), "Secret.Namespace", secret.GetNamespace())
 
 	// If Secret has been updated, try to find deployments in the same namespace that needs to be bounced.
@@ -138,12 +132,14 @@ func (r *PodRefreshReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	for _, deploy := range deployList.Items {
 		r.Log.Info("Checking deployment for usage of certificate found in secret", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
-		if hasAllowRestartAnnotation(deploy.ObjectMeta) && usesSecret(secret, deploy.Spec.Template.Spec) {
+		if hasAllowRestartAnnotation(deploy.ObjectMeta) && usesSecret(secret, deploy.Spec.Template.Spec) && outdatedSecretInUse(secret.GetName(), secret.GetResourceVersion(), deploy.GetObjectMeta().GetAnnotations()) {
 			r.Event(&deploy, corev1.EventTypeNormal, refresh.reason, refresh.message)
-			r.Log.Info("Deployment makes use of secret and has opted-in. Initiating refresh", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace())
+			r.Log.Info("Deployment makes use of secret and has opted-in", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace())
 			updatedDeploy := deploy.DeepCopy()
-			updatedDeploy.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
-			updatedDeploy.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
+			updatedDeploy.ObjectMeta.Labels[timeRestartedLabel] = updatedAt
+			updatedDeploy.Spec.Template.ObjectMeta.Labels[timeRestartedLabel] = updatedAt
+			updateSecretRevisionAnnotation(secret.GetName(), secret.GetResourceVersion(), updatedDeploy.GetAnnotations())
+			r.Log.Info("Initiating refresh", "Secret", secret.GetName(), "Deployment", deploy.GetName(), "Namespace", secret.GetNamespace())
 			err := r.Update(context.TODO(), updatedDeploy)
 			if err != nil {
 				r.Event(&deploy, corev1.EventTypeWarning, refreshFailure.reason, refreshFailure.message)
@@ -158,11 +154,13 @@ func (r *PodRefreshReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	for _, dset := range dsetList.Items {
 		r.Log.Info("Checking Daemonset for usage of certificate found in secret", "Secret", secret.GetName(), "Daemonset", dset.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
-		if hasAllowRestartAnnotation(dset.ObjectMeta) && usesSecret(secret, dset.Spec.Template.Spec) {
-			r.Log.Info("Daemonset makes use of secret and has opted-in. Initiating refresh", "Secret", secret.GetName(), "Daemonset", dset.GetName(), "Namespace", secret.GetNamespace())
+		if hasAllowRestartAnnotation(dset.ObjectMeta) && usesSecret(secret, dset.Spec.Template.Spec) && outdatedSecretInUse(secret.GetName(), secret.GetResourceVersion(), dset.GetObjectMeta().GetAnnotations()) {
+			r.Log.Info("Daemonset makes use of secret and has opted-in", "Secret", secret.GetName(), "Daemonset", dset.GetName(), "Namespace", secret.GetNamespace())
 			updatedDset := dset.DeepCopy()
-			updatedDset.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
-			updatedDset.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
+			updatedDset.ObjectMeta.Labels[timeRestartedLabel] = updatedAt
+			updatedDset.Spec.Template.ObjectMeta.Labels[timeRestartedLabel] = updatedAt
+			updateSecretRevisionAnnotation(secret.GetName(), secret.GetResourceVersion(), updatedDset.GetAnnotations())
+			r.Log.Info("Initiating refresh", "Secret", secret.GetName(), "Daemonset", dset.GetName(), "Namespace", secret.GetNamespace())
 			err := r.Update(context.TODO(), updatedDset)
 			if err != nil {
 				r.Log.Error(err, "Unable to restart Daemonset.", "Daemonset.Name", dset.GetName())
@@ -177,11 +175,13 @@ func (r *PodRefreshReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	for _, sts := range stsList.Items {
 		r.Log.Info("Checking Statefulset for usage of certificate found in secret", "Secret", secret.GetName(), "Statefulset", sts.GetName(), "Namespace", secret.GetNamespace()) //debug make higher verbosity level
 		updatedAt := time.Now().Format("2006-1-2.1504")
-		if hasAllowRestartAnnotation(sts.ObjectMeta) && usesSecret(secret, sts.Spec.Template.Spec) {
-			r.Log.Info("Statefulset makes use of secret and has opted-in. Initiating refresh", "Secret", secret.GetName(), "Statefulset", sts.GetName(), "Namespace", secret.GetNamespace())
+		if hasAllowRestartAnnotation(sts.ObjectMeta) && usesSecret(secret, sts.Spec.Template.Spec) && outdatedSecretInUse(secret.GetName(), secret.GetResourceVersion(), sts.GetObjectMeta().GetAnnotations()) {
+			r.Log.Info("Statefulset makes use of secret and has opted-in", "Secret", secret.GetName(), "Statefulset", sts.GetName(), "Namespace", secret.GetNamespace())
 			updatedsts := sts.DeepCopy()
-			updatedsts.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
-			updatedsts.Spec.Template.ObjectMeta.Labels[certManagerDeploymentRestartLabel] = updatedAt
+			updatedsts.ObjectMeta.Labels[timeRestartedLabel] = updatedAt
+			updatedsts.Spec.Template.ObjectMeta.Labels[timeRestartedLabel] = updatedAt
+			updateSecretRevisionAnnotation(secret.GetName(), secret.GetResourceVersion(), updatedsts.GetAnnotations())
+			r.Log.Info("Initiating refresh", "Secret", secret.GetName(), "Statefulset", sts.GetName(), "Namespace", secret.GetNamespace())
 			err := r.Update(context.TODO(), updatedsts)
 			if err != nil {
 				r.Log.Error(err, "Unable to restart Statefulset.", "Statefulset.Name", sts.GetName())
@@ -212,7 +212,10 @@ func (r *PodRefreshReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 func (r *PodRefreshReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
-		WithEventFilter(PodRefresherPredicateFuncs).
+		WithEventFilter(predicate.And(
+			predicate.ResourceVersionChangedPredicate{},
+			isCertManagerIssuedTLSPredicate{},
+		)).
 		Complete(r)
 }
 
@@ -237,7 +240,7 @@ type podRefresherEvent struct {
 // backwards compatibility.
 func hasAllowRestartAnnotation(metadata metav1.ObjectMeta) bool {
 	annotations := metadata.GetAnnotations()
-	val, ok := annotations[certManagerDeploymentAllowRestartAnnotation]
+	val, ok := annotations[allowRestartAnnotation]
 	// It's possible the value of the annotation is false, so check that the annotation
 	// is both present and true.
 	if val == "true" && ok {
@@ -262,5 +265,94 @@ func usesSecret(secret *corev1.Secret, podspec corev1.PodSpec) bool {
 		}
 	}
 	// We didn't find a volume from a secret that matched our input secret.
+	return false
+}
+
+// outdatedSecretInUse checks to see if the target's object metadata has an annotation
+// for the secret indicating the last resource version the object was bounced for.
+// If the resource version matches, then it's assumed the secret does not need to
+// to bounce and it saves the target object from a new rollout.
+func outdatedSecretInUse(secretName, resourceVersion string, a map[string]string) bool {
+	val, ok := a[secretResourceVersionAnnotation]
+	if !ok {
+		// the resourceVersion annotation wasn't on the object at all so
+		// we have to assume the object needs a bounce.
+		return true
+	}
+
+	var rvmap map[string]string
+	err := json.Unmarshal([]byte(val), &rvmap)
+	if err != nil {
+		// it is expected that the value of this is a map. If it's not a map, we'll need
+		// to clear it out and start again. We don't clear it out here. We let the update
+		// logic handle that.
+		return true
+	}
+
+	secretResourceVersion, ok := rvmap[secretName]
+	if !ok {
+		// we didn't find an entry for this object for the secret that's being reconciled
+		// so we have to assume it needs updating and bounce the object.
+		return true
+	}
+
+	if secretResourceVersion != resourceVersion {
+		// the resourceVersion on the secret does not match the resourceVersion for that secret that last
+		// triggered a bounce, so we need t bounce it now.
+		return true
+	}
+
+	return false
+}
+
+// updateSecretRevisionAnnotation takes input annotations and updates the secret resource version annotation
+// with a new revision for a given secret. If the secret resourceVers map does not exist or is malformed, this
+// overwrites it entirely.
+func updateSecretRevisionAnnotation(secretName, resourceVers string, a map[string]string) {
+	var resourceVersMap map[string]string
+	val, ok := a[secretResourceVersionAnnotation]
+	unmarshalErr := json.Unmarshal([]byte(val), &resourceVersMap)
+	if !ok || unmarshalErr != nil {
+		// didn't find it or it wasn't in the proper format so we have to
+		// create it from scratch
+		d, _ := json.Marshal(map[string]string{secretName: resourceVers})
+		a[secretResourceVersionAnnotation] = string(d)
+		return
+	}
+
+	resourceVersMap[secretName] = resourceVers
+	d, _ := json.Marshal(resourceVersMap)
+	a[secretResourceVersionAnnotation] = string(d)
+	return
+}
+
+// isCertManagerIssuedTLSPredicate implements a predicate verifying secret object meta indicates a
+// cert-manager issued TLS certificate. This only applies to Create and Update events. Deletes
+// and Generics should not make it to the work queue.
+type isCertManagerIssuedTLSPredicate struct{}
+
+// Update implements default UpdateEvent filter for validating if object has the
+// `cert-manager.io/issuer-kind` which helps identify that it is cert-manager issued.
+// Intended to be used with secrets.
+func (isCertManagerIssuedTLSPredicate) Update(e event.UpdateEvent) bool {
+	a := e.MetaNew.GetAnnotations()
+	_, isCertManagerIssued := a[issuerKindAnnotation]
+	return isCertManagerIssued
+}
+
+// Create implements default CreateEvent filter for validating if object has the
+// `cert-manager.io/issuer-kind` which helps identify that it is cert-manager issued.
+// Intended to be used with secrets.
+func (isCertManagerIssuedTLSPredicate) Create(e event.CreateEvent) bool {
+	a := e.Meta.GetAnnotations()
+	_, isCertManagerIssued := a[issuerKindAnnotation]
+	return isCertManagerIssued
+}
+
+func (isCertManagerIssuedTLSPredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}
+
+func (isCertManagerIssuedTLSPredicate) Generic(e event.GenericEvent) bool {
 	return false
 }
