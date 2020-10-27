@@ -1,2 +1,5 @@
 resources:
 - manager.yaml
+
+patchesStrategicMerge:
+- manager_service_account_patch.yaml
