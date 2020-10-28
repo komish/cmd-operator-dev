@@ -1,6 +1,6 @@
 // +kubebuilder:object:generate=true
 // +groupName=certmanagerconfigs.operators.redhat.io
-package v1
+package types
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"

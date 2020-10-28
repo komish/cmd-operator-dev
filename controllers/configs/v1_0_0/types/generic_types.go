@@ -1,10 +1,10 @@
-package v1
+package types
 
 import (
 	"time"
 )
 
-// loggingFlags appear to be coming from klog. These should be universal for
+// LoggingFlags appear to be coming from klog. These should be universal for
 // all controllers.
 type loggingFlags struct {
 	AddDirectoryHeaders bool          `json:"add_dir_header"`

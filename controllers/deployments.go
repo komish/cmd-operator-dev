@@ -10,7 +10,7 @@ import (
 	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
 	"github.com/komish/cmd-operator-dev/cmdoputils"
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
-	certmanagerconfigsv1 "github.com/komish/cmd-operator-dev/controllers/configs/v1"
+	certmanagerconfigs "github.com/komish/cmd-operator-dev/controllers/configs"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -110,19 +110,19 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 
 	// TODO: handling this error requires some refactor, but we probably need to do it.
 	result, err := resourcemerge.MergePrunedProcessConfig(
-		certmanagerconfigsv1.GetEmptyConfigFor(comp.GetName()), // the schema
+		certmanagerconfigs.GetEmptyConfigFor(comp.GetName(), cmdoputils.CRVersionOrDefaultVersion(cr.Spec.Version, componentry.CertManagerDefaultVersion)), // the schema
 		specialMergeRules, // we have no merge rules
-		certmanagerconfigsv1.DefaultConfigsFor[comp.GetName()], // our default
+		certmanagerconfigs.GetDefaultConfigFor(comp.GetName(), cmdoputils.CRVersionOrDefaultVersion(cr.Spec.Version, componentry.CertManagerDefaultVersion)), // our default
 		userDefinedArgs, // user overridden flags
 	)
 
 	if err != nil {
 		// we don't log this at the moment, but we should
 		// for now we just run a default configuration
-		result = certmanagerconfigsv1.DefaultConfigsFor[comp.GetName()]
+		result = certmanagerconfigs.GetDefaultConfigFor(comp.GetName(), cmdoputils.CRVersionOrDefaultVersion(cr.Spec.Version, componentry.CertManagerDefaultVersion))
 	}
 
-	deploy.Spec.Template.Spec.Containers[0].Args = argSliceOf(result, certmanagerconfigsv1.GetEmptyConfigFor(comp.GetName()))
+	deploy.Spec.Template.Spec.Containers[0].Args = argSliceOf(result, certmanagerconfigs.GetEmptyConfigFor(comp.GetName(), componentry.CertManagerDefaultVersion))
 
 	return deploy
 }
