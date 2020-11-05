@@ -31,7 +31,7 @@ func GetDefaultConfigFor(componentName, version string) []byte {
 
 func getDefaultControllerConfigForVersion(version string) []byte {
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3":
+	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return v1_0_0defaults.ConfigForController()
 	default:
 		panic(fmt.Sprintf("should not have received version string that was not a supported version but received: %s\n", version))
@@ -40,7 +40,7 @@ func getDefaultControllerConfigForVersion(version string) []byte {
 
 func getDefaultWebhookConfigForVersion(version string) []byte {
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3":
+	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return v1_0_0defaults.ConfigForWebhook()
 	default:
 		panic(fmt.Sprintf("should not have received version string that was not a supported version but received: %s\n", version))
@@ -49,7 +49,7 @@ func getDefaultWebhookConfigForVersion(version string) []byte {
 
 func getDefaultCAInjectorConfigForVersion(version string) []byte {
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3":
+	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return v1_0_0defaults.ConfigForCAInjector()
 	default:
 		panic(fmt.Sprintf("should not have received version string that was not a supported version but received: %s\n", version))
@@ -73,7 +73,7 @@ func GetEmptyConfigFor(componentName, version string) runtime.Object {
 
 func getEmptyControllerConfigForVersion(version string) runtime.Object {
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3":
+	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return &v1_0_0types.CertManagerControllerConfig{}
 	default:
 		panic(fmt.Sprintf("should not have received version string that was not a supported version but received: %s\n", version))
@@ -83,7 +83,7 @@ func getEmptyControllerConfigForVersion(version string) runtime.Object {
 
 func getEmptyWebhookConfigForVersion(version string) runtime.Object {
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3":
+	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return &v1_0_0types.CertManagerWebhookConfig{}
 	default:
 		panic(fmt.Sprintf("should not have received version string that was not a supported version but received: %s\n", version))
@@ -92,7 +92,7 @@ func getEmptyWebhookConfigForVersion(version string) runtime.Object {
 
 func getEmptyCAInjectorConfigForVersion(version string) runtime.Object {
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3":
+	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return &v1_0_0types.CertManagerCAInjectorConfig{}
 	default:
 		panic(fmt.Sprintf("should not have received version string that was not a supported version but received: %s\n", version))

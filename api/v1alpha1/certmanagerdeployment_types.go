@@ -32,7 +32,7 @@ type CertManagerDeploymentSpec struct {
 	// Version indicates the version of CertManager to deploy. The operator only
 	// supports a subset of versions.
 	// +optional
-	// +kubebuilder:validation:Enum=v1.0.0;v1.0.1;v1.0.2;v1.0.3
+	// +kubebuilder:validation:Enum=v1.0.0;v1.0.1;v1.0.2;v1.0.3;v1.0.4
 	Version *string `json:"version"`
 	// DangerZone contains a series of options that aren't necessarily accounted
 	// for by the operator, but can be configured in edge cases if needed.
