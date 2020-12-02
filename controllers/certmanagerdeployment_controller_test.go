@@ -368,7 +368,7 @@ var _ = Describe(
 			})
 		})
 
-		/* unimplemented
+		/* unimplemented but may need to be implemented in the future
 		By("Deleting a CertManagerDeployment custom resource", func() {
 			// everything in the namespace should get deleted so we don't check for it here
 			It("should delete all namespaced resources", func() {
