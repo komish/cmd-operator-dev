@@ -62,18 +62,21 @@ spec:
                       description: CAInjector contains flags to change for the cainjector
                         pod. The keys for this object should be the identical to the
                         cainjector pod's flags, without the leading dashes.
+                      nullable: true
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     controller:
                       description: Controller contains flags to change for the controller
                         pod. The keys for this object should be the identical to the
                         controller pod's flags, without the leading dashes.
+                      nullable: true
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     webhook:
                       description: Webhook contains flags to change for the webhook
                         pod. The keys for this object should be the identical to the
                         webhook pod's flags, without the leading dashes.
+                      nullable: true
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   type: object

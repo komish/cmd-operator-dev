@@ -150,18 +150,21 @@ type ContainerArgOverrides struct {
 	// for this object should be the identical to the controller pod's flags, without
 	// the leading dashes.
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +nullable
 	Controller runtime.RawExtension `json:"controller,omitempty"`
 
 	// Webhook contains flags to change for the webhook pod. The keys
 	// for this object should be the identical to the webhook pod's flags, without
 	// the leading dashes.
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +nullable
 	Webhook runtime.RawExtension `json:"webhook,omitempty"`
 
 	// CAInjector contains flags to change for the cainjector pod. The keys
 	// for this object should be the identical to the cainjector pod's flags, without
 	// the leading dashes.
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +nullable
 	CAInjector runtime.RawExtension `json:"cainjector,omitempty"`
 }
 
