@@ -52,7 +52,7 @@ var _ = Describe(
 			}
 			controllerOverrideAsOption = "--enable-certificate-owner-ref=true"
 
-			previousSupportedVersion = "v1.0.3"
+			previousSupportedVersion = "v1.0.4"
 		)
 
 		By("creating an instance of the CertManagerDeployment kind", func() {
@@ -332,7 +332,7 @@ var _ = Describe(
 
 		// Upgrade scenarios
 		By("Updating a CertManagerDeployment custom resource with a new, supported version", func() {
-			It("Should redeploy the deployments with the appropriate image specified", func() {
+			It("should reach status phase running with the supported version", func() {
 				// Get a copy of the base template for the CR we use
 				cr := baseCR.DeepCopy()
 				// add a command override
@@ -350,6 +350,20 @@ var _ = Describe(
 					Fail(fmt.Sprintf("Unable to post an update to the CR: %s", err))
 				}
 
+				Eventually(func() bool {
+					var recv operatorsv1alpha1.CertManagerDeployment
+					if err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: "", Name: "cluster"}, &recv); err != nil {
+						return false
+					}
+
+					if recv.Status.Phase == string(componentry.StatusPhaseRunning) && recv.Status.Version == previousSupportedVersion {
+						return true
+					}
+
+					return false
+				}, timeout, interval).Should(BeTrue())
+			})
+			It("Should redeploy the deployments with the appropriate image specified", func() {
 				for _, deployment := range []string{"cert-manager-controller", "cert-manager-webhook", "cert-manager-cainjector"} {
 					Eventually(func() bool {
 						var recv appsv1.Deployment

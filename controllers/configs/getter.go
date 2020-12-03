@@ -5,6 +5,10 @@ import (
 
 	v1_0_0defaults "github.com/komish/cmd-operator-dev/controllers/configs/v1_0_0/defaults"
 	v1_0_0types "github.com/komish/cmd-operator-dev/controllers/configs/v1_0_0/types"
+
+	v1_1_0defaults "github.com/komish/cmd-operator-dev/controllers/configs/v1_1_0/defaults"
+	v1_1_0types "github.com/komish/cmd-operator-dev/controllers/configs/v1_1_0/types"
+
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -31,6 +35,8 @@ func GetDefaultConfigFor(componentName, version string) []byte {
 
 func getDefaultControllerConfigForVersion(version string) []byte {
 	switch version {
+	case "v1.1.0":
+		return v1_1_0defaults.ConfigForController()
 	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return v1_0_0defaults.ConfigForController()
 	default:
@@ -40,6 +46,8 @@ func getDefaultControllerConfigForVersion(version string) []byte {
 
 func getDefaultWebhookConfigForVersion(version string) []byte {
 	switch version {
+	case "v1.1.0":
+		return v1_1_0defaults.ConfigForWebhook()
 	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return v1_0_0defaults.ConfigForWebhook()
 	default:
@@ -49,6 +57,8 @@ func getDefaultWebhookConfigForVersion(version string) []byte {
 
 func getDefaultCAInjectorConfigForVersion(version string) []byte {
 	switch version {
+	case "v1.1.0":
+		return v1_1_0defaults.ConfigForCAInjector()
 	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return v1_0_0defaults.ConfigForCAInjector()
 	default:
@@ -73,6 +83,8 @@ func GetEmptyConfigFor(componentName, version string) runtime.Object {
 
 func getEmptyControllerConfigForVersion(version string) runtime.Object {
 	switch version {
+	case "v1.1.0":
+		return &v1_1_0types.CertManagerControllerConfig{}
 	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return &v1_0_0types.CertManagerControllerConfig{}
 	default:
@@ -83,6 +95,8 @@ func getEmptyControllerConfigForVersion(version string) runtime.Object {
 
 func getEmptyWebhookConfigForVersion(version string) runtime.Object {
 	switch version {
+	case "v1.1.0":
+		return &v1_1_0types.CertManagerWebhookConfig{}
 	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return &v1_0_0types.CertManagerWebhookConfig{}
 	default:
@@ -92,6 +106,8 @@ func getEmptyWebhookConfigForVersion(version string) runtime.Object {
 
 func getEmptyCAInjectorConfigForVersion(version string) runtime.Object {
 	switch version {
+	case "v1.1.0":
+		return &v1_1_0types.CertManagerCAInjectorConfig{}
 	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
 		return &v1_0_0types.CertManagerCAInjectorConfig{}
 	default:

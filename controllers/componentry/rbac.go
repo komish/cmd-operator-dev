@@ -240,6 +240,11 @@ var (
 				Resources: []string{"certificates", "certificaterequests", "issuers"},
 				Verbs:     []string{"create", "delete", "deletecollection", "patch", "update"},
 			},
+			{
+				APIGroups: []string{"acme.cert-manager.io"},
+				Resources: []string{"challenges", "orders"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
 		},
 	}
 
@@ -387,6 +392,11 @@ var (
 			{
 				APIGroups: []string{"cert-manager.io"},
 				Resources: []string{"certificates", "certificaterequests", "issuers"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+			{
+				APIGroups: []string{"acme.cert-manager.io"},
+				Resources: []string{"challenges", "orders"},
 				Verbs:     []string{"get", "list", "watch"},
 			},
 		},

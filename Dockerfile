@@ -28,6 +28,7 @@ COPY v1.0.1/ v1.0.1/
 COPY v1.0.2/ v1.0.2/
 COPY v1.0.3/ v1.0.3/
 COPY v1.0.4/ v1.0.4/
+COPY v1.1.0/ v1.1.0/
 USER nonroot:nonroot
 
 ENTRYPOINT ["/manager"]

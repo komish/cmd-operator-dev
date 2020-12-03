@@ -142,6 +142,19 @@ func ObjectsMatch(src, dest interface{}) bool {
 		if !ok {
 			return false
 		}
+
+		// if y is not the same length as x, then it's not possible
+		// for it to be the same so bail out early.
+		// TODO: evaluate if we need to allow slices that are larger
+		// in the dest value (y). This would allow for x to be smaller
+		// but y contains all x values. If we do allow for this, we
+		// need to make it optional - because some things need to be
+		// evaluated for exactness. Might be worth introducing a "strictness" for
+		// the slice comparisons.
+		if len(y) != len(x) {
+			return false
+		}
+
 		for i, v := range x {
 			switch v.(type) {
 			case string:
