@@ -41,8 +41,10 @@ func CertManagerVersionIsSupported(cr *operatorsv1alpha1.CertManagerDeployment, 
 // github.com/komish/cmd-operator-dev/controllers/componentry
 func GetSupportedCertManagerVersions(matrix map[string]bool) []string {
 	versions := make([]string, len(matrix))
+	i := 0
 	for vers := range matrix {
-		versions = append(versions, vers)
+		versions[i] = vers
+		i++
 	}
 
 	return versions
