@@ -10,7 +10,6 @@ import (
 	"sort"
 
 	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MergeMaps will take two maps (dest, addition) and merge all keys/values from "addition"
@@ -75,33 +74,6 @@ func HasLabelOrAnnotationWithValue(in map[string]string, key, value string) bool
 	}
 
 	return false
-}
-
-// LabelsAndAnnotationsMatch returns true if two objects that have ObjectMeta
-// both have the same labels and annotations. In this case, dest object must
-// have the same labels and annotations as the src object so it should be
-// assumed the dest object might have more labels and annotations and this
-// is acceptable so long as it has the same ones as the src.
-func LabelsAndAnnotationsMatch(src, dest metav1.Object) bool {
-	lblsMatch := true
-	annotsMatch := true
-
-	dLabels, dAnnots := dest.GetLabels(), dest.GetAnnotations()
-	sLabels, sAnnots := src.GetLabels(), src.GetAnnotations()
-
-	for k, v := range sLabels {
-		if !HasLabelOrAnnotationWithValue(dLabels, k, v) {
-			lblsMatch = false
-		}
-	}
-
-	for k, v := range sAnnots {
-		if !HasLabelOrAnnotationWithValue(dAnnots, k, v) {
-			annotsMatch = false
-		}
-	}
-
-	return lblsMatch && annotsMatch
 }
 
 // ObjectsMatch compares the JSON-form of two objects. The src object is considered to be
@@ -196,7 +168,9 @@ type Interfacer struct {
 	Data interface{}
 }
 
-// ToJSONInterface converts data to an interface
+// ToJSONInterface takes the input Interfacer.Data, converts it to JSON, and then unmarshals
+// to an interface{} type. This gives the return interface the same data represented as a subset
+// of relatively easy-to-compare
 func (i Interfacer) ToJSONInterface() (interface{}, error) {
 	var iface interface{}
 	b, err := json.Marshal(i.Data)
