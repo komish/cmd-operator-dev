@@ -220,12 +220,16 @@ func TestObjectsMatch(t *testing.T) {
 			persisted: persistedPod.Labels,
 			expected:  false,
 		},
-		// TODO: fix arbitrary object checks.
-		// {
-		// 	generated: fixtures.ComplexObjectVariationButPass,
-		// 	persisted: fixtures.ComplexObject,
-		// 	expected:  true,
-		// },
+		{ // the arbitrary object variation should match the base object
+			generated: fixtures.ComplexObjectVariationButPass,
+			persisted: fixtures.ComplexObject,
+			expected:  true,
+		},
+		{ // the arbitrary object variation should not match the base object
+			generated: fixtures.ComplexObjectVariationButFail,
+			persisted: fixtures.ComplexObject,
+			expected:  false,
+		},
 	}
 
 	for _, c := range testCases {
@@ -242,6 +246,8 @@ func TestObjectsMatch(t *testing.T) {
 
 		if actual := ObjectsMatch(genInterface, persistedInterface); actual != c.expected {
 			t.Errorf("unexpected result attempting to check to see if the interfaced objects match\nGot:  %v\nWant: %v\n", actual, c.expected)
+			t.Logf("generated: %s", c.generated)
+			t.Logf("persisted: %s", c.persisted)
 		}
 	}
 }

@@ -1,46 +1,56 @@
 package fixtures
 
+type complexStruct struct {
+	SomeSlice  []string          `json:"someSlice"`
+	SomeMap    map[string]string `json:"someMap"`
+	SomeStruct complexSubStruct  `json:"SomeStruct"`
+}
+
+type complexSubStruct struct {
+	Numbers []int32 `json:"numbers"`
+}
+
 var (
-	ComplexObject = []byte(`
-	{
-		"foo": [
-			"bar",
-			"baz",
-			0,
-			1,
-			{
-				"hello": "world",
-				"hola": "mundo"
-			}
-		]
-	}`)
+	// ComplexObject represents a base object for testing the ObjectsMatch comparison logic.
+	ComplexObject = complexStruct{
+		SomeSlice: []string{"fo", "fum"},
+		SomeMap: map[string]string{
+			"this":  "that",
+			"hello": "world",
+		},
+		SomeStruct: complexSubStruct{
+			Numbers: []int32{0, 1, 2},
+		},
+	}
 
-	ComplexObjectVariationButPass = []byte(`
-	{
-		"foo": [
-			"bar",
-			0,
-			1,
-			{
-				"hello": "world",
-				"hola": "mundo"
-			}
-		]
-	}`)
+	// ComplexObjectVariationButPass represents the base object ComplexObject but with what is expected to be
+	// a safe variation. In other words, this should match the base object because the base object has everything
+	// represented in this variation, and potentially more (which is ok).
+	ComplexObjectVariationButPass = complexStruct{
+		SomeSlice: []string{"fo", "fum"},
+		SomeMap: map[string]string{
+			"hello": "world",
+		},
+		SomeStruct: complexSubStruct{
+			Numbers: []int32{0, 1, 2},
+		},
+	}
 
-	ComplexObjectVariationButFail = []byte(`
-	{
-		"foo": [
-			"bar",
-			"baz",
-			0,
-			1,
-			{
-				"hello": "mundo",
-				"hola": "mundo"
-			}
-		]
-	}`)
+	// ComplexObjectVariationButFail represents the base object ComplexObject but with what is expected to be
+	// an unsafe variation. In other words, this should not match the base object because this object has an additional
+	// value that is not represented in the base.
+	ComplexObjectVariationButFail = complexStruct{
+		SomeSlice: []string{"fo", "fum"},
+		SomeMap: map[string]string{
+			"this":  "that",
+			"hello": "world",
+			"foo":   "bar",
+		},
+		SomeStruct: complexSubStruct{
+			Numbers: []int32{0, 1, 2},
+		},
+	}
+
 	// PersistedCoreV1PodJSON is a representation of a pod that would be received by a GET request
 	// to the API for use in testing.
 	PersistedCoreV1PodJSON = []byte(
