@@ -253,11 +253,43 @@ func TestObjectsMatch(t *testing.T) {
 }
 
 func TestGetSortedStringSliceOf(t *testing.T) {
-	t.Skip("Unimplemented")
+	type testCase struct {
+		interfacedSlice []interface{}
+		expected        []string
+	}
+
+	testCases := []testCase{
+		{
+			interfacedSlice: []interface{}{"beta", "charlie", "alpha"},
+			expected:        []string{"alpha", "beta", "charlie"},
+		},
+	}
+
+	for _, c := range testCases {
+		if actual := getSortedStringSliceOf(c.interfacedSlice); !reflect.DeepEqual(actual, c.expected) {
+			t.Errorf("Unexpected result comparing sorted string slice from interfaced string slice\nGot:  %v\nWant: %v\n", actual, c.expected)
+		}
+	}
 }
 
 func TestGetSortedFloat64SliceOf(t *testing.T) {
-	t.Skip("Unimplemented")
+	type testCase struct {
+		interfacedSlice []interface{}
+		expected        []float64
+	}
+
+	testCases := []testCase{
+		{
+			interfacedSlice: []interface{}{300.0, 200.0, 100.0},
+			expected:        []float64{100.0, 200.0, 300.0},
+		},
+	}
+
+	for _, c := range testCases {
+		if actual := getSortedFloat64SliceOf(c.interfacedSlice); !reflect.DeepEqual(actual, c.expected) {
+			t.Errorf("Unexpected result comparing sorted float64 slice from interfaced string slice\nGot:  %v\nWant: %v\n", actual, c.expected)
+		}
+	}
 }
 
 func TestInterfacer(t *testing.T) {
