@@ -90,7 +90,6 @@ func getEmptyControllerConfigForVersion(version string) runtime.Object {
 	default:
 		panic(fmt.Sprintf("should not have received version string that was not a supported version but received: %s\n", version))
 	}
-
 }
 
 func getEmptyWebhookConfigForVersion(version string) runtime.Object {
