@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/komish/cmd-operator-dev/tests/fixtures"
+
 	appsv1 "k8s.io/api/apps/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -51,8 +53,6 @@ var _ = Describe(
 				Object: nil,
 			}
 			controllerOverrideAsOption = "--enable-certificate-owner-ref=true"
-
-			previousSupportedVersion = "v1.0.4"
 		)
 
 		By("creating an instance of the CertManagerDeployment kind", func() {
@@ -336,7 +336,7 @@ var _ = Describe(
 				// Get a copy of the base template for the CR we use
 				cr := baseCR.DeepCopy()
 				// add a command override
-				cr.Spec.Version = &previousSupportedVersion
+				cr.Spec.Version = &fixtures.PreviousSupportedVersion
 
 				var existing operatorsv1alpha1.CertManagerDeployment
 				k8sClient.Get(context.TODO(), types.NamespacedName{Name: cr.GetName()}, &existing)
@@ -356,7 +356,7 @@ var _ = Describe(
 						return false
 					}
 
-					if recv.Status.Phase == string(componentry.StatusPhaseRunning) && recv.Status.Version == previousSupportedVersion {
+					if recv.Status.Phase == string(componentry.StatusPhaseRunning) && recv.Status.Version == fixtures.PreviousSupportedVersion {
 						return true
 					}
 
@@ -372,7 +372,7 @@ var _ = Describe(
 						deployedImg := recv.Spec.Template.Spec.Containers[0].Image
 						tag := strings.Split(deployedImg, ":")[1]
 
-						if tag == previousSupportedVersion {
+						if tag == fixtures.PreviousSupportedVersion {
 							return true
 						}
 
