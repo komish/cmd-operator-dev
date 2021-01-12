@@ -1,4 +1,4 @@
-package controllers
+package certmanagerdeployment
 
 import operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
 

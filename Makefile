@@ -31,7 +31,22 @@ all: manager
 
 # Run tests
 test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
+	ginkgo \
+	-v \
+	-randomizeAllSpecs \
+	-randomizeSuites \
+	-cover \
+	controllers/certmanagerdeployment \
+	cmdoputils \
+	controllers/componentry \
+	controllers/configs
+	# TODO: add podrefresher to this
+
+install-podrefresher-test-dependencies: 
+	oc apply -f hack/yamls/
+
+uninstall-podrefresher-test-dependencies: 
+	oc delete -f hack/yamls/
 
 # Run envtest
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin

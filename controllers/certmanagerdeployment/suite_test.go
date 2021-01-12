@@ -14,13 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package certmanagerdeployment
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,17 +48,20 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
+var identifier int64
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
+		"CertManagerDeployment Controller Suite",
 		[]Reporter{printer.NewlineReporter{}})
 }
 
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+
+	identifier = time.Now().Unix()
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -70,13 +77,16 @@ var _ = BeforeSuite(func(done Done) {
 
 	// TODO: can scheme and client build-out be consolidated to similar logic
 	// or the same logic as done for the controller?
-	err = operatorsv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = corev1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = apiextv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	// err = appsv1.AddToScheme(scheme.Scheme)
+	// Expect(err).NotTo(HaveOccurred())
+
+	err = operatorsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -89,7 +99,19 @@ var _ = BeforeSuite(func(done Done) {
 }, 60)
 
 var _ = AfterSuite(func() {
+	By("tearing down controller-managed CRDs")
+	// clean up controller-managed crds
+	for _, crdToDelete := range crds {
+		err := k8sClient.Delete(context.TODO(), &apiextv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: crdToDelete}})
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "resource IsNotFound is acceptable during clean up steps")
+		} else {
+			Expect(err).To(BeNil())
+		}
+	}
+
 	By("tearing down the test environment")
+
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })

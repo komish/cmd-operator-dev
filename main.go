@@ -33,7 +33,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
-	"github.com/komish/cmd-operator-dev/controllers"
+	"github.com/komish/cmd-operator-dev/controllers/certmanagerdeployment"
+	"github.com/komish/cmd-operator-dev/controllers/podrefresher"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -84,7 +85,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.CertManagerDeploymentReconciler{
+	if err = (&certmanagerdeployment.CertManagerDeploymentReconciler{
 		Client:        mgr.GetClient(),
 		Log:           ctrl.Log.WithName("controllers").WithName(controllerNameCertManagerDeployment),
 		Scheme:        mgr.GetScheme(),
@@ -97,7 +98,7 @@ func main() {
 	// The pod refresher controller was enabled via CLI.
 	if enablePodRefreshController {
 		setupLog.Info("Pod refresh controller is enabled")
-		if err = (&controllers.PodRefreshReconciler{
+		if err = (&podrefresher.PodRefreshReconciler{
 			Client:        mgr.GetClient(),
 			Log:           ctrl.Log.WithName("controllers").WithName(controllerNamePodRefresher),
 			Scheme:        mgr.GetScheme(),

@@ -1,4 +1,4 @@
-package controllers
+package certmanagerdeployment
 
 import (
 	"reflect"

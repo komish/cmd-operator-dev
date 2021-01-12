@@ -1,5 +1,19 @@
 package fixtures
 
+import (
+	"time"
+)
+
+const (
+	Namespace        = "test-cmd-operator"
+	Certificate      = "cmd-operator-tests-cert"
+	Secret           = "cmd-operator-tests-cert"
+	Timeout          = time.Second * 60
+	Duration         = time.Second * 60
+	Interval         = time.Second * 2
+	TestResourceName = "test-cmd-operator-pod-refresher"
+)
+
 type complexStruct struct {
 	SomeSlice  []string          `json:"someSlice"`
 	SomeMap    map[string]string `json:"someMap"`
