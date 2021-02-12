@@ -12,8 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 var (
@@ -53,12 +51,8 @@ var (
 	// Changes to these values also need to be mirrored in the CertManageDeploymentSpec generation
 	// validation annotations.
 	SupportedVersions = map[string]bool{
-		"v1.0.0": true,
-		"v1.0.1": true,
-		"v1.0.2": true,
-		"v1.0.3": true,
-		"v1.0.4": true,
-		"v1.1.0": true, // latest
+		"v1.1.0": true,
+		"v1.2.0": true, // latest
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -202,7 +196,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v1.1.0",
+							Image:           "quay.io/jetstack/cert-manager-controller:v1.2.0",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -230,58 +224,11 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
+	case "v1.1.0":
 		{
 			// Image changes for this version.
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-controller:%s", version)
-
-			// RBAC changes for this version
-			// clusterRoleDataForEdit in v1.1.z has additional policyRules that were not in v1.0.z
-			modClusterRoleDataForEdit := RoleData{
-				name:        "cert-manager-edit",
-				isAggregate: true,
-				labels: map[string]string{
-					"rbac.authorization.k8s.io/aggregate-to-admin": "true",
-					"rbac.authorization.k8s.io/aggregate-to-edit":  "true",
-				},
-				policyRules: []rbacv1.PolicyRule{
-					{
-						APIGroups: []string{"cert-manager.io"},
-						Resources: []string{"certificates", "certificaterequests", "issuers"},
-						Verbs:     []string{"create", "delete", "deletecollection", "patch", "update"},
-					},
-				},
-			}
-
-			// clusterRoleDataForView in v1.1.z has additional policyRules that were not in v1.0.z
-			modClusterRoleDataForView := RoleData{
-				name:        "cert-manager-view",
-				isAggregate: true,
-				labels: map[string]string{
-					"rbac.authorization.k8s.io/aggregate-to-admin": "true",
-					"rbac.authorization.k8s.io/aggregate-to-edit":  "true",
-					"rbac.authorization.k8s.io/aggregate-to-view":  "true",
-				},
-				policyRules: []rbacv1.PolicyRule{
-					{
-						APIGroups: []string{"cert-manager.io"},
-						Resources: []string{"certificates", "certificaterequests", "issuers"},
-						Verbs:     []string{"get", "list", "watch"},
-					},
-				},
-			}
-
-			comp.clusterRoles = []RoleData{
-				clusterRoleDataForClusterIssuers,
-				clusterRoleDataForIssuers,
-				clusterRoleDataForChallenges,
-				modClusterRoleDataForEdit, // diff
-				clusterRoleDataForIngressShim,
-				clusterRoleDataForOrders,
-				clusterRoleDataForCertificates,
-				modClusterRoleDataForView, // diff
-			}
 		}
 	}
 
@@ -320,7 +267,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.1.0",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.2.0",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -331,7 +278,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
+	case "v1.1.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-cainjector:%s", version)
@@ -376,7 +323,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v1.1.0",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v1.2.0",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -510,91 +457,10 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v1.0.0", "v1.0.1", "v1.0.2", "v1.0.3", "v1.0.4":
+	case "v1.1.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-webhook:%s", version)
-
-			// webhooks in the v1.1.z add a timeout. The default prior to that does not include a timeout.
-			// so we replace it here.
-			comp.webhooks = []WebhookData{
-				{
-					name: "cert-manager-webhook",
-					annotations: map[string]string{
-						"cert-manager.io/inject-ca-from-secret": "cert-manager/cert-manager-webhook-ca",
-					},
-					mutatingWebhooks: []adregv1.MutatingWebhook{
-						{
-							Name: "webhook.cert-manager.io",
-							AdmissionReviewVersions: []string{
-								"v1",
-								"v1beta1",
-							},
-							ClientConfig: adregv1.WebhookClientConfig{
-								Service: &adregv1.ServiceReference{
-									Name: "cert-manager-webhook", // pull this from other resources?
-									// Namespace is pulled from CR
-									Path: cmdoputils.GetStringPointer("/mutate"),
-								},
-							},
-							FailurePolicy: &failPolicy,
-							SideEffects:   &noneSideEffect,
-							Rules: []adregv1.RuleWithOperations{
-								{
-									Operations: []adregv1.OperationType{adregv1.Create, adregv1.Update},
-									Rule: adregv1.Rule{
-										Resources:   []string{"*/*"},
-										APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
-										APIVersions: []string{"*"},
-									},
-								},
-							},
-						},
-					},
-					validatingWebhooks: []adregv1.ValidatingWebhook{
-						{
-							Name: "webhook.cert-manager.io",
-							AdmissionReviewVersions: []string{
-								"v1",
-								"v1beta1",
-							},
-							ClientConfig: adregv1.WebhookClientConfig{
-								Service: &adregv1.ServiceReference{
-									Name: "cert-manager-webhook", // pull this from other resources?
-									// namespace is set in a context where the CR exists.
-									Path: cmdoputils.GetStringPointer("/validate"),
-								},
-							},
-							FailurePolicy: &failPolicy,
-							SideEffects:   &noneSideEffect,
-							Rules: []adregv1.RuleWithOperations{
-								{
-									Operations: []adregv1.OperationType{adregv1.Create, adregv1.Update},
-									Rule: adregv1.Rule{
-										APIGroups:   []string{"cert-manager.io", "acme.certmanager.io"},
-										APIVersions: []string{"*"},
-										Resources:   []string{"*/*"},
-									},
-								},
-							},
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{
-										Key:      "cert-manager.io/disable-validation",
-										Operator: metav1.LabelSelectorOpNotIn,
-										Values:   []string{"true"},
-									},
-									{
-										Key:      "name",
-										Operator: metav1.LabelSelectorOpNotIn,
-										Values:   []string{"cert-manager"},
-									},
-								},
-							},
-						},
-					},
-				},
-			}
 		}
 	}
 

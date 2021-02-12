@@ -11,7 +11,7 @@ import (
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -131,7 +131,7 @@ func deploymentsAreReady(existingDeploys []*appsv1.Deployment) corev1.ConditionS
 
 // crdsAreReady evaluates the status fields in existingCRDs and returns true
 // if all existingCRDs are in an acceptable state.
-func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) corev1.ConditionStatus {
+func crdsAreReady(existingCRDs []*apiextv1.CustomResourceDefinition) corev1.ConditionStatus {
 	state, ok := crdState{count: len(existingCRDs)}, false
 	for _, crd := range existingCRDs {
 		// search specifically for conditions we care about - NamesAccepted and Established
@@ -142,11 +142,11 @@ func crdsAreReady(existingCRDs []*apiextv1beta1.CustomResourceDefinition) corev1
 		for _, condition := range conditions {
 			switch condition.Type {
 			case "Established":
-				if condition.Status == apiextv1beta1.ConditionTrue {
+				if condition.Status == apiextv1.ConditionTrue {
 					established = true
 				}
 			case "NamesAccepted":
-				if condition.Status == apiextv1beta1.ConditionTrue {
+				if condition.Status == apiextv1.ConditionTrue {
 					accepted = true
 				}
 			}
@@ -273,8 +273,8 @@ func queryAPIForExpectedDeployments(client client.Client, rg ResourceGetter, req
 // exist in the API. will return ok as true when all were found, and false if not. Will return the
 // CRD slice as nil if an error other than IsNotfound was encountered trying to obtain the data, as well as
 // set return ok as false.
-func queryAPIForExpectedCRDs(client client.Client, rg ResourceGetter, reqLogger logr.Logger) ([]*apiextv1beta1.CustomResourceDefinition, bool) {
-	foundCRDs := make([]*apiextv1beta1.CustomResourceDefinition, 0)
+func queryAPIForExpectedCRDs(client client.Client, rg ResourceGetter, reqLogger logr.Logger) ([]*apiextv1.CustomResourceDefinition, bool) {
+	foundCRDs := make([]*apiextv1.CustomResourceDefinition, 0)
 	var ok bool
 
 	expectedCRDs, err := rg.GetCRDs()
@@ -285,7 +285,7 @@ func queryAPIForExpectedCRDs(client client.Client, rg ResourceGetter, reqLogger 
 	}
 
 	for _, crd := range expectedCRDs {
-		receiver := apiextv1beta1.CustomResourceDefinition{}
+		receiver := apiextv1.CustomResourceDefinition{}
 		err := client.Get(context.TODO(), types.NamespacedName{Name: crd.GetName()}, &receiver)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -374,7 +374,7 @@ func updateStatusDeploymentConditions(inStatus *operatorsv1alpha1.CertManagerDep
 // updateStatusCRDConditions adds the conditions associated with found managed CRDs to the status block for the CertManagerDeployment.
 // This is an overwrite action and only stores conditions that are found in the API server. CRDs that are not in the APIServer when this is
 // executed will not be stored, regardless of whether they should exist. This can indicate an issue reaching a running phase for the CertManagerDeployment.
-func updateStatusCRDConditions(inStatus *operatorsv1alpha1.CertManagerDeploymentStatus, existingCRDs []*apiextv1beta1.CustomResourceDefinition) *operatorsv1alpha1.CertManagerDeploymentStatus {
+func updateStatusCRDConditions(inStatus *operatorsv1alpha1.CertManagerDeploymentStatus, existingCRDs []*apiextv1.CustomResourceDefinition) *operatorsv1alpha1.CertManagerDeploymentStatus {
 	conditions := make([]operatorsv1alpha1.ManagedCRDWithConditions, 0)
 	for _, crd := range existingCRDs {
 		crdCondition := operatorsv1alpha1.ManagedCRDWithConditions{

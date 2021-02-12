@@ -21,8 +21,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/api/apps/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -204,7 +204,7 @@ func (in *ManagedCRDWithConditions) DeepCopyInto(out *ManagedCRDWithConditions) 
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1beta1.CustomResourceDefinitionCondition, len(*in))
+		*out = make([]v1.CustomResourceDefinitionCondition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -226,7 +226,7 @@ func (in *ManagedDeploymentWithConditions) DeepCopyInto(out *ManagedDeploymentWi
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1.DeploymentCondition, len(*in))
+		*out = make([]appsv1.DeploymentCondition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

@@ -25,7 +25,6 @@ import (
 	"github.com/imdario/mergo"
 
 	adregv1 "k8s.io/api/admissionregistration/v1"
-	adregv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -187,8 +186,8 @@ func (r *CertManagerDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&rbacv1.ClusterRoleBinding{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
-		Owns(&adregv1beta1.MutatingWebhookConfiguration{}).
-		Owns(&adregv1beta1.ValidatingWebhookConfiguration{}).
+		Owns(&adregv1.MutatingWebhookConfiguration{}).
+		Owns(&adregv1.ValidatingWebhookConfiguration{}).
 		Complete(r)
 }
 

@@ -3,7 +3,7 @@ package componentry
 const (
 	// CertManagerDefaultVersion is the version of CertManager that the
 	// operator will install by default.
-	CertManagerDefaultVersion = "v1.1.0"
+	CertManagerDefaultVersion = "v1.2.0"
 
 	// CertManagerBaseName is the base name to use for objects that need to
 	// include the name in their object names.

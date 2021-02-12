@@ -20,7 +20,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -32,7 +32,7 @@ type CertManagerDeploymentSpec struct {
 	// Version indicates the version of CertManager to deploy. The operator only
 	// supports a subset of versions.
 	// +optional
-	// +kubebuilder:validation:Enum=v1.0.0;v1.0.1;v1.0.2;v1.0.3;v1.0.4;v1.1.0
+	// +kubebuilder:validation:Enum=v1.1.0;v1.2.0
 	Version *string `json:"version"`
 	// DangerZone contains a series of options that aren't necessarily accounted
 	// for by the operator, but can be configured in edge cases if needed.
@@ -92,7 +92,7 @@ type ManagedCRDWithConditions struct {
 	// Name is the name given to a specific CRD.
 	Name string `json:"name"`
 	// Conditions is the DeploymentConditions associated with that deployment.
-	Conditions []apiextv1beta1.CustomResourceDefinitionCondition `json:"conditions"`
+	Conditions []apiextv1.CustomResourceDefinitionCondition `json:"conditions"`
 }
 
 // CertManagerDeploymentCondition represents conditions that can be applied to a CertManagerDeployment object.

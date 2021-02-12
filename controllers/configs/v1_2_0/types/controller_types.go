@@ -30,18 +30,21 @@ type CertManagerControllerFlags struct {
 	DefaultIssuerGroup                     string        `json:"default-issuer-group"`
 	DefaultIssuerKind                      string        `json:"default-issuer-kind"`
 	DefaultIssuerName                      string        `json:"default-issuer-name"`
+	DNS01CheckRetryPeriod                  time.Duration `json:"dns01-check-retry-period"`
 	DNS01RecursiveNameservers              []string      `json:"dns01-recursive-nameservers"`
 	DNS01RecursiveNameserversOnly          bool          `json:"dns01-recursive-nameservers-only"`
 	EnableCertificateOwnerRefs             bool          `json:"enable-certificate-owner-ref"`
+	EnableProfiling                        bool          `json:"enable-profiling"`
 	FeatureGates                           []string      `json:"feature-gates"` // supposed to be map[string]bool
 	IssuerAmbientCredentials               bool          `json:"issuer-ambient-credentials"`
+	KubeAPIBurst                           float64       `json:"kube-api-burst"`
+	KubeAPIQPS                             float64       `json:"kube-api-qps"`
 	LeaderElect                            bool          `json:"leader-elect"`
 	LeaderElectLeaseDuration               time.Duration `json:"leader-election-lease-duration"`
 	LeaderElectionNamespace                string        `json:"leader-election-namespace"`
 	LeaderElectRenewDeadline               time.Duration `json:"leader-election-renew-deadline"`
 	LeaderElectionRetryPeriod              time.Duration `json:"leader-election-retry-period"`
-	MaxConcurrentChallenges                int           `json:"max-concurrent-challenges"`
+	MaxConcurrentChallenges                float64       `json:"max-concurrent-challenges"`
 	MetricsListenAddress                   string        `json:"metrics-listen-address"`
 	Namespace                              string        `json:"namespace"`
-	RenewBeforeExpiryDuration              time.Duration `json:"renew-before-expiry-duration duration"`
 }

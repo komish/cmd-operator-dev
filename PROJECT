@@ -6,6 +6,7 @@ resources:
 - group: operators
   kind: CertManagerDeployment
   version: v1alpha1
+  crdVersion: v1
 version: 3-alpha
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}

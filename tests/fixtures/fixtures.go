@@ -28,7 +28,7 @@ var (
 	// PreviousSupportedVersion is the previous supported Y version as identified
 	// by a semantic version string and is used throughout tests as needed. This is
 	// expected to increment as the default/supported version increments.
-	PreviousSupportedVersion = "v1.0.4"
+	PreviousSupportedVersion = "v1.1.0"
 
 	// ComplexObject represents a base object for testing the ObjectsMatch comparison logic.
 	ComplexObject = complexStruct{
