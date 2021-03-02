@@ -21,7 +21,7 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -77,7 +77,7 @@ func (r *PodRefreshReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	secret := &corev1.Secret{}
 	err := r.Get(context.TODO(), req.NamespacedName, secret)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile req.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue

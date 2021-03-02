@@ -1,26 +1,137 @@
 package certmanagerdeployment
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"reflect"
 	"strings"
 
+	"github.com/go-logr/logr"
+	"github.com/imdario/mergo"
 	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
 	"github.com/komish/cmd-operator-dev/cmdoputils"
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
 	certmanagerconfigs "github.com/komish/cmd-operator-dev/controllers/configs"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-// DeploymentCustomizations are the values from the CustomResource that will
-// impact the deployment for a given CertManagerComponent.
+// reconcileDeployments will reconcile the Deployment resources for a given CertManagerDeployment resource.
+func (r *CertManagerDeploymentReconciler) reconcileDeployments(instance *operatorsv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: deployments")
+	defer reqLogger.Info("Ending reconciliation: deployments")
+
+	getter := ResourceGetter{CustomResource: *instance}
+	deps := getter.GetDeployments()
+
+	for _, dep := range deps {
+		if err := controllerutil.SetControllerReference(instance, dep, r.Scheme); err != nil {
+			return err
+		}
+		found := &appsv1.Deployment{}
+		err := r.Get(context.TODO(), types.NamespacedName{Namespace: dep.GetNamespace(), Name: dep.GetName()}, found)
+		if err != nil && apierrors.IsNotFound(err) {
+			reqLogger.Info("Creating Deployment", "Deployment.Namespace", dep.GetNamespace(), "Deployment.Name", dep.GetName())
+			r.Eventf(instance,
+				createManagedDeployment.etype,
+				createManagedDeployment.reason,
+				"%s: %s/%s",
+				createManagedDeployment.message,
+				dep.GetNamespace(), dep.GetName())
+			if err := r.Create(context.TODO(), dep); err != nil {
+				return err
+			}
+
+			// successful create. Move onto next iteration.
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		// A deployment exists. Update if necessary.
+		genSpecInterface, err := cmdoputils.Interfacer{Data: dep.Spec}.ToJSONInterface()
+		if err != nil { // err indicates a marshaling problem
+			return err
+		}
+		foundSpecInterface, err := cmdoputils.Interfacer{Data: found.Spec}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: dep.Labels}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		genAnnotsInterface, err := cmdoputils.Interfacer{Data: dep.Annotations}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+		foundAnnotsInterface, err := cmdoputils.Interfacer{Data: found.Annotations}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		specsMatch := cmdoputils.ObjectsMatch(genSpecInterface, foundSpecInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
+
+		if !(specsMatch && labelsMatch && annotsMatch) {
+			reqLogger.Info("Deployment already exists, but needs an update.",
+				"Deployment.Name", dep.GetName(),
+				"Deployment.Namespace", dep.GetNamespace(),
+				"HasExpectedLabels", labelsMatch,
+				"HasExpectedAnnotation", annotsMatch,
+				"HasExpectedSpec", specsMatch)
+			r.Eventf(instance, updatingManagedDeployment.etype, updatingManagedDeployment.reason, "%s: %s/%s", updatingManagedDeployment.message, dep.GetNamespace(), dep.GetName()) // BOOKMARK
+
+			updated := found.DeepCopy()
+
+			if !specsMatch {
+				// update our local copy with values to keys as defined in our generated spec.
+				err := mergo.Merge(&updated.Spec, dep.Spec, mergo.WithOverride)
+				if err != nil {
+					// Some problem merging the specs
+					return err
+				}
+			}
+
+			if !labelsMatch {
+				// TODO(): should we avoid clobbering and instead just add our labels?
+				updated.ObjectMeta.Labels = dep.GetLabels()
+			}
+
+			if !annotsMatch {
+				// TODO(): should we avoid clobbering and instead just add our annotations?
+				updated.ObjectMeta.Annotations = dep.GetAnnotations()
+			}
+
+			reqLogger.Info("Updating Deployment.", "Deployment.Name", dep.GetName(), "Deployment.Namespace", dep.GetNamespace())
+			if err := r.Update(context.TODO(), updated); err != nil {
+				return err
+			}
+
+			r.Eventf(instance, updatedManagedDeployment.etype, updatedManagedDeployment.reason, "%s: %s/%s", updatedManagedDeployment.message, dep.GetNamespace(), dep.GetName())
+		}
+	}
+
+	return nil
+}
+
+// DeploymentCustomizations are the values from the CertManagerDeployment that can
+// impact the resulting managed deployments.
 type DeploymentCustomizations struct {
 	// ContainerImage is a container image to be used for a component
 	// in the format /registry/container-image:tag
@@ -28,8 +139,7 @@ type DeploymentCustomizations struct {
 	ContainerArgs  runtime.RawExtension
 }
 
-// GetDeployments returns Deployment objects for a given CertManagerDeployment
-// custom resource.
+// GetDeployments returns Deployment objects for a given CertManagerDeployment resource.
 func (r *ResourceGetter) GetDeployments() []*appsv1.Deployment {
 	var deploys []*appsv1.Deployment
 	for _, componentGetterFunc := range componentry.Components {
@@ -83,14 +193,13 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 	}
 
 	// Add the service account entry to the base deployment
-	setServiceAccount(deploy, comp.GetServiceAccountName())
+	deploy.Spec.Template.Spec.ServiceAccountName = comp.GetServiceAccountName()
 
 	// add the label selectors for the base deployment
 	sel := comp.GetBaseLabelSelector()
 	sel = metav1.AddLabelToSelector(sel, componentry.InstanceLabelKey, cr.Name)
 	deploy.Spec.Selector = sel
 
-	// TODO(): Should probably handle the below blank-assigned error in some way.
 	selmap, _ := metav1.LabelSelectorAsMap(sel)
 	deploy.Spec.Template.ObjectMeta.Labels = selmap
 
@@ -117,8 +226,7 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 	)
 
 	if err != nil {
-		// we don't log this at the moment, but we should
-		// for now we just run a default configuration
+		// run with a default configuratio nif there was an error merging configs
 		result = certmanagerconfigs.GetDefaultConfigFor(comp.GetName(), cmdoputils.CRVersionOrDefaultVersion(cr.Spec.Version, componentry.CertManagerDefaultVersion))
 	}
 
@@ -127,20 +235,7 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 	return deploy
 }
 
-// setServiceAccount adds the service account to a given DeploymentSpec Object, or
-// overwrites the value for the service acccount if one already exists.
-func setServiceAccount(deploy *appsv1.Deployment, sa string) *appsv1.Deployment {
-	deploy.Spec.Template.Spec.ServiceAccountName = sa
-	return deploy
-}
-
-// setContainerImage will update a container object's image.
-func setContainerImage(container *corev1.Container, image string) *corev1.Container {
-	container.Image = image
-	return container
-}
-
-// argSliceOf returns a string slice of arguments, built from a CertManager*Config object.
+// argSliceOf returns a string slice of arguments, built from a CertManagerConfig object.
 func argSliceOf(data []byte, schema runtime.Object) []string {
 	// TODO handle errors in this function
 	var args []string

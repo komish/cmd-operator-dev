@@ -1,45 +1,161 @@
 package certmanagerdeployment
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 
+	"github.com/go-logr/logr"
+	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
 	"github.com/komish/cmd-operator-dev/cmdoputils"
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
-
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
 	crdMap = map[string][]string{}
 )
 
-// GetCRDs returns a CustomResourceDefinitions for a given CertManagerDeployment
+// reconcileCRDs reconciles CustomResourceDefinition resource(s) for a given CertManagerDeployment resource.
+func (r *CertManagerDeploymentReconciler) reconcileCRDs(instance *operatorsv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+
+	reqLogger.Info("Starting reconciliation: CRDs")
+	defer reqLogger.Info("Ending reconciliation: CRDs")
+
+	getter := ResourceGetter{CustomResource: *instance}
+	crds, err := getter.GetCRDs()
+	if err != nil {
+		reqLogger.Error(err, "Failed to get CRDs")
+		// Something happened when trying to get CRDs for this reconciliation
+		return err
+	}
+
+	for _, crd := range crds {
+		found := &apiextv1.CustomResourceDefinition{}
+		err := r.Get(context.TODO(), types.NamespacedName{Name: crd.GetName()}, found)
+		if err != nil && apierrors.IsNotFound(err) {
+			reqLogger.Info("Creating CustomResourceDefinition", "CustomResourceDefinition.Name", crd.GetName())
+			r.Eventf(instance, createManagedCRD.etype, createManagedCRD.reason, "%s: %s", createManagedCRD.message, crd.GetName())
+
+			if err := r.Create(context.TODO(), crd); err != nil {
+				return err
+			}
+
+			// successful create. Move onto next iteration.
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		// If needed, update CRD.
+		genSpecInterface, err := cmdoputils.Interfacer{Data: crd.Spec}.ToJSONInterface()
+		if err != nil { // error indicates marshaling problems
+			return err
+		}
+		foundSpecInterface, err := cmdoputils.Interfacer{Data: found.Spec}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		genLabelsInterface, err := cmdoputils.Interfacer{Data: crd.Labels}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		foundLabelsInterface, err := cmdoputils.Interfacer{Data: found.Labels}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		genAnnotsInterface, err := cmdoputils.Interfacer{Data: crd.Annotations}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		foundAnnotsInterface, err := cmdoputils.Interfacer{Data: found.Annotations}.ToJSONInterface()
+		if err != nil {
+			return err
+		}
+
+		// Check for equality
+		specsMatch := cmdoputils.ObjectsMatch(genSpecInterface, foundSpecInterface)
+		labelsMatch := cmdoputils.ObjectsMatch(genLabelsInterface, foundLabelsInterface)
+		annotsMatch := cmdoputils.ObjectsMatch(genAnnotsInterface, foundAnnotsInterface)
+
+		// If not equal, update.
+		if !(specsMatch && labelsMatch && annotsMatch) {
+			reqLogger.Info("CustomResourceDefinition already exists, but needs an update. Updating.",
+				"CustomResourceDefinition.Name", crd.GetName(),
+				"HasExpectedLabels", labelsMatch,
+				"HasExpectedAnnotations", annotsMatch,
+				"HasExpectedSpec", specsMatch)
+			r.Eventf(instance, updatingManagedCRD.etype, updatingManagedCRD.reason, "%s: %s", updatingManagedCRD.message, crd.GetName())
+
+			// modify the state of the old object to post to API
+			updated := found.DeepCopy()
+
+			if !specsMatch {
+				updated.Spec = crd.Spec
+			}
+
+			// TODO(): should we merge instead of
+			// clobbering these updates?
+			if !labelsMatch {
+				updated.ObjectMeta.Labels = crd.GetLabels()
+			}
+
+			if !annotsMatch {
+				updated.ObjectMeta.Annotations = crd.GetAnnotations()
+			}
+
+			reqLogger.Info("Updating CustomResourceDefinition.", "CustomResourceDefinition.Name", crd.GetName())
+			if err := r.Update(context.TODO(), updated); err != nil {
+				// some issue performing the update.
+				return err
+			}
+
+			r.Eventf(instance, updatedManagedCRD.etype, updatedManagedCRD.reason, "%s: %s", updatedManagedCRD.message, crd.GetName())
+		}
+	}
+
+	return nil
+}
+
+// GetCRDs returns CustomResourceDefinitions for a given CertManagerDeployment.
 func (r *ResourceGetter) GetCRDs() ([]*apiextv1.CustomResourceDefinition, error) {
+	// The managed CRD representations are coming directly from YAML files
+	// for a given release. These YAMLs are released by the cert-manager
+	// project for each release of the application to ensure compatibility
+	// with the upstream project.
+	//
+	// A directory should exist in the operator image for each supported release.
+	// Each release directory contains YAMLs for each custom resource definition
+	// supported by that release.
+
 	res := make([]*apiextv1.CustomResourceDefinition, 0)
 
-	// Get CertManager version from the r.CustomResource
 	version := cmdoputils.CRVersionOrDefaultVersion(
 		r.CustomResource.Spec.Version,
 		componentry.CertManagerDefaultVersion)
 
-	// Get file paths for the requested version
+	// get the file paths for the version of cert-manager requested.
 	crds, err := getCRDListForCertManagerVersion(version)
-
 	if err != nil {
 		return []*apiextv1.CustomResourceDefinition{}, err
 	}
 
-	// Check that all files exist at the expected path.
+	// check that all files exist at the given path.
 	if ok, missing := allFilesExist(crds); !ok {
 		return []*apiextv1.CustomResourceDefinition{}, fmt.Errorf("unable to find CRDs for version %s. Missing %s", version, missing)
 	}
 
-	// Attempt to deserialize them all to CRD
+	// deserialize to struct. Only crd @ v1 is supported.
 	for _, crdPath := range crds {
 		c, err := getCRDFromFile(crdPath)
 		if err != nil {
@@ -49,7 +165,6 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1.CustomResourceDefinition, error)
 		res = append(res, c)
 	}
 
-	// Should have all CRDs here.
 	return res, nil
 }
 
@@ -66,8 +181,10 @@ func getCRDListForCertManagerVersion(version string) ([]string, error) {
 			"acme.cert-manager.io_orders_crd.yaml",
 		}), nil
 	default:
-		// We should never hit this case because the operator should stop reconciliation well before this point
-		// if an unsupported version is requested.
+		// sanity check / precuation.
+		// this case should never be hit because the reconciler
+		// logic should halt reconciliation if the supported version
+		// reflected in the cr is incorrect.
 		return []string{}, errors.New("requested version is unsupported by this operator")
 	}
 }
@@ -86,11 +203,9 @@ func allFilesExist(files []string) (bool, string) {
 
 // getCRDFromFile will read a CRD YAML file from disk and return the CRD as an object.
 func getCRDFromFile(filePath string) (*apiextv1.CustomResourceDefinition, error) {
-	// get from disk
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		// some kind of error reading from disk
-		// TODO(): better logging
 		return nil, err
 	}
 
@@ -99,7 +214,6 @@ func getCRDFromFile(filePath string) (*apiextv1.CustomResourceDefinition, error)
 	obj, _, err := decode(data, nil, nil)
 	if err != nil {
 		// some kind of error decoding the object to a CRD
-		// TODO(): better logging
 		return nil, err
 	}
 
@@ -112,6 +226,7 @@ func getCRDFromFile(filePath string) (*apiextv1.CustomResourceDefinition, error)
 	return crd, nil
 }
 
+// addPathPrefixToPathList prepends each path in paths with the prefix pathPrefix.
 func addPathPrefixToPathList(pathPrefix string, paths []string) []string {
 	new := make([]string, 0)
 	for _, p := range paths {

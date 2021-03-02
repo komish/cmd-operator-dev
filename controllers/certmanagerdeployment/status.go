@@ -8,18 +8,46 @@ import (
 
 	"github.com/go-logr/logr"
 	operatorsv1alpha1 "github.com/komish/cmd-operator-dev/api/v1alpha1"
+	"github.com/komish/cmd-operator-dev/cmdoputils"
 	"github.com/komish/cmd-operator-dev/controllers/componentry"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// deploymentState is a type to help facilitate reading the current state of existing deployments
-// in the cluster.
+// reconcileStatus reconciles the status block of a CertManagerDeployment resource.
+func (r *CertManagerDeploymentReconciler) reconcileStatus(instance *operatorsv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
+	reqLogger.Info("Starting reconciliation: status")
+	defer reqLogger.Info("Ending reconciliation: status")
+
+	// get an empty status, copy the object we're working with,
+	// and get a getter to query for expected states of resources.
+	status := getUninitializedCertManagerDeploymentStatus()
+	obj := instance.DeepCopy()
+	getter := ResourceGetter{CustomResource: *instance}
+
+	r.reconcileStatusVersion(status, cmdoputils.CRVersionOrDefaultVersion(instance.Spec.Version, componentry.CertManagerDefaultVersion))
+	r.reconcileStatusDeploymentsHealthy(status, getter, reqLogger)
+	r.reconcileStatusCRDsHealthy(status, getter, reqLogger)
+	r.reconcileStatusPhase(status)
+
+	// Update the object with new status
+	obj.Status = *status
+	reqLogger.V(2).Info("Updating Status for object", "CertManagerDeployment.Name", instance.GetName())
+	if err := r.Status().Update(context.TODO(), obj); err != nil {
+		reqLogger.Info("Error updating CertManagerDeployment's Status", "name", instance.GetName())
+		return err
+	}
+
+	return nil
+}
+
+// deploymentState facilitates identifying the current
+// state of managed deployment resources.
 type deploymentState struct {
 	// Count is the number of deployments
 	count                 int
@@ -59,8 +87,7 @@ func (ds *deploymentState) deploymentCountMatchesCountOfStoredStates() bool {
 	return len(ds.availableMatchesReady) == len(ds.readyMatchesDesired) && ds.count == len(ds.availableMatchesReady)
 }
 
-// crdState is a type to help facilitate reading the current state of existing CRDs
-// in the cluster.
+// crdState facilitates determining the current state of managed CRDs.
 type crdState struct {
 	// Count is the number of CRDs
 	count             int
@@ -251,7 +278,7 @@ func queryAPIForExpectedDeployments(client client.Client, rg ResourceGetter, req
 		receiver := appsv1.Deployment{}
 		err := client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, &receiver)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				// if we got an IsNotFound error, we later make sure that ok is false.
 				continue
 			} else {
@@ -288,7 +315,7 @@ func queryAPIForExpectedCRDs(client client.Client, rg ResourceGetter, reqLogger 
 		receiver := apiextv1.CustomResourceDefinition{}
 		err := client.Get(context.TODO(), types.NamespacedName{Name: crd.GetName()}, &receiver)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				// if we got an IsNotFound error, we later make sure that ok is false.
 				continue
 			} else {
