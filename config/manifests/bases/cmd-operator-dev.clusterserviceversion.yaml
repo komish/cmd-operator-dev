@@ -15,7 +15,7 @@ spec:
     - description: CertManagerDeployment is the Schema for the certmanagerdeployments API
       displayName: Cert-Manager Deployment
       kind: CertManagerDeployment
-      name: certmanagerdeployments.operators.redhat.io
+      name: certmanagerdeployments.operators.opdev.io
       resources:
       - kind: CustomResourceDefinition
         name: certificaterequests.cert-manager.io

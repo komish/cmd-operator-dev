@@ -1,4 +1,4 @@
-domain: redhat.io
+domain: opdev.io
 layout: go.kubebuilder.io/v2
 projectName: cmd-operator-dev
 repo: github.com/komish/cmd-operator-dev

@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: certmanagerdeployments.operators.redhat.io
+  name: certmanagerdeployments.operators.opdev.io
 spec:
-  group: operators.redhat.io
+  group: operators.opdev.io
   names:
     kind: CertManagerDeployment
     listKind: CertManagerDeploymentList

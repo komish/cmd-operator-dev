@@ -39,10 +39,10 @@ import (
 )
 
 const (
-	secretResourceVersionAnnotation string = "certmanagerdeployment.redhat.io/secret-resource-versions"
+	secretResourceVersionAnnotation string = "certmanagerdeployment.opdev.io/secret-resource-versions"
 	issuerKindAnnotation            string = "cert-manager.io/issuer-kind"
-	allowRestartAnnotation          string = "certmanagerdeployment.redhat.io/allow-restart"
-	timeRestartedLabel              string = "certmanagerdeployment.redhat.io/time-restarted"
+	allowRestartAnnotation          string = "certmanagerdeployment.opdev.io/allow-restart"
+	timeRestartedLabel              string = "certmanagerdeployment.opdev.io/time-restarted"
 )
 
 var (

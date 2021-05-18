@@ -1,4 +1,4 @@
-apiVersion: operators.redhat.io/v1alpha1
+apiVersion: operators.opdev.io/v1alpha1
 kind: CertManagerDeployment
 metadata:
   name: cluster

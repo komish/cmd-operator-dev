@@ -119,7 +119,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - operators.redhat.io
+  - operators.opdev.io
   resources:
   - certmanagerdeployments
   verbs:
@@ -131,13 +131,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - operators.redhat.io
+  - operators.opdev.io
   resources:
   - certmanagerdeployments/finalizers
   verbs:
   - update
 - apiGroups:
-  - operators.redhat.io
+  - operators.opdev.io
   resources:
   - certmanagerdeployments/status
   verbs:

@@ -5,7 +5,7 @@ metadata:
   name: certmanagerdeployment-viewer-role
 rules:
 - apiGroups:
-  - operators.redhat.io
+  - operators.opdev.io
   resources:
   - certmanagerdeployments
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - operators.redhat.io
+  - operators.opdev.io
   resources:
   - certmanagerdeployments/status
   verbs:

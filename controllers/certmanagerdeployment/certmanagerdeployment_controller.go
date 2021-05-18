@@ -46,9 +46,9 @@ type CertManagerDeploymentReconciler struct {
 	record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=operators.redhat.io,resources=certmanagerdeployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=operators.redhat.io,resources=certmanagerdeployments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=operators.redhat.io,resources=certmanagerdeployments/finalizers,verbs=update;
+// +kubebuilder:rbac:groups=operators.opdev.io,resources=certmanagerdeployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operators.opdev.io,resources=certmanagerdeployments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=operators.opdev.io,resources=certmanagerdeployments/finalizers,verbs=update;
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;create;update;patch;watch;
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces;serviceaccounts;services,verbs=get;list;watch;create;update;patch;delete;
