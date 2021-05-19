@@ -128,6 +128,20 @@ func (r *ResourceGetter) GetClusterRoles() []*rbacv1.ClusterRole {
 	return result
 }
 
+// GetClusterRolesFor will return all ClusterRoles for CertManageComponents.
+func GetClusterRolesFor(cr operatorsv1alpha1.CertManagerDeployment) []*rbacv1.ClusterRole {
+	var result []*rbacv1.ClusterRole
+	for _, componentGetterFunc := range componentry.Components {
+		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
+			cr.Spec.Version,
+			componentry.CertManagerDefaultVersion))
+		for _, clusterRole := range component.GetClusterRoles() {
+			result = append(result, newClusterRole(component, clusterRole, cr))
+		}
+	}
+	return result
+}
+
 // newClusterRole returns a ClusterRole for a given CertManagerComponent, RoleData, and CertManagerDeployment
 // custom resource.
 func newClusterRole(comp componentry.CertManagerComponent, rd componentry.RoleData, cr operatorsv1alpha1.CertManagerDeployment) *rbacv1.ClusterRole {

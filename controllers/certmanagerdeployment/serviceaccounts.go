@@ -66,6 +66,19 @@ func (r *ResourceGetter) GetServiceAccounts() []*corev1.ServiceAccount {
 	return sas
 }
 
+// GetServiceAccounts will return new service account objects for the CR.
+func GetServiceAccountsFor(cr operatorsv1alpha1.CertManagerDeployment) []*corev1.ServiceAccount {
+	var sas []*corev1.ServiceAccount
+	for _, componentGetterFunc := range componentry.Components {
+		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
+			cr.Spec.Version,
+			componentry.CertManagerDefaultVersion))
+		sa := newServiceAccount(component, cr)
+		sas = append(sas, sa)
+	}
+	return sas
+}
+
 // newServiceAccount returns a service account object for a custom resource. These service accounts
 // are installed in the global target namespace.
 func newServiceAccount(comp componentry.CertManagerComponent, cr operatorsv1alpha1.CertManagerDeployment) *corev1.ServiceAccount {

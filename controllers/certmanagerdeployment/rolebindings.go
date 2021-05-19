@@ -133,6 +133,23 @@ func (r *ResourceGetter) GetRoleBindings() []*rbacv1.RoleBinding {
 	return rbs
 }
 
+// GetRoleBindingsFor will return all RoleBindings for the custom resource.
+func GetRoleBindingsFor(cr operatorsv1alpha1.CertManagerDeployment) []*rbacv1.RoleBinding {
+	var rbs []*rbacv1.RoleBinding
+	for _, componentGetterFunc := range componentry.Components {
+		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
+			cr.Spec.Version,
+			componentry.CertManagerDefaultVersion))
+		for _, role := range component.GetRoles() {
+			// need the role and the service account for the CR
+			role := newRole(component, role, cr)
+			sa := newServiceAccount(component, cr)
+			rbs = append(rbs, newRoleBinding(component, cr, role, sa))
+		}
+	}
+	return rbs
+}
+
 // newRoleBinding will return a new RoleBinding object for a given CertManagerComponent
 func newRoleBinding(comp componentry.CertManagerComponent, cr operatorsv1alpha1.CertManagerDeployment, role *rbacv1.Role, sa *corev1.ServiceAccount) *rbacv1.RoleBinding {
 	var rb rbacv1.RoleBinding

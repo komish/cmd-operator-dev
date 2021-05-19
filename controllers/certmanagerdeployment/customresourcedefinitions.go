@@ -168,6 +168,47 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1.CustomResourceDefinition, error)
 	return res, nil
 }
 
+// GetCRDs returns CustomResourceDefinitions for a given CertManagerDeployment.
+func GetCRDs(cr operatorsv1alpha1.CertManagerDeployment) ([]*apiextv1.CustomResourceDefinition, error) {
+	// The managed CRD representations are coming directly from YAML files
+	// for a given release. These YAMLs are released by the cert-manager
+	// project for each release of the application to ensure compatibility
+	// with the upstream project.
+	//
+	// A directory should exist in the operator image for each supported release.
+	// Each release directory contains YAMLs for each custom resource definition
+	// supported by that release.
+
+	res := make([]*apiextv1.CustomResourceDefinition, 0)
+
+	version := cmdoputils.CRVersionOrDefaultVersion(
+		cr.Spec.Version,
+		componentry.CertManagerDefaultVersion)
+
+	// get the file paths for the version of cert-manager requested.
+	crds, err := getCRDListForCertManagerVersion(version)
+	if err != nil {
+		return []*apiextv1.CustomResourceDefinition{}, err
+	}
+
+	// check that all files exist at the given path.
+	if ok, missing := allFilesExist(crds); !ok {
+		return []*apiextv1.CustomResourceDefinition{}, fmt.Errorf("unable to find CRDs for version %s. Missing %s", version, missing)
+	}
+
+	// deserialize to struct. Only crd @ v1 is supported.
+	for _, crdPath := range crds {
+		c, err := getCRDFromFile(crdPath)
+		if err != nil {
+			return []*apiextv1.CustomResourceDefinition{}, err
+		}
+
+		res = append(res, c)
+	}
+
+	return res, nil
+}
+
 // getCRDListForCertManagerVersion returns the CRDs for a requested version of cert-manager.
 func getCRDListForCertManagerVersion(version string) ([]string, error) {
 	switch version {

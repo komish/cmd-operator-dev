@@ -154,6 +154,21 @@ func (r *ResourceGetter) GetDeployments() []*appsv1.Deployment {
 	return deploys
 }
 
+// GetDeploymentsFor returns Deployment objects for a given CertManagerDeployment resource.
+func GetDeploymentsFor(cr operatorsv1alpha1.CertManagerDeployment) []*appsv1.Deployment {
+	var deploys []*appsv1.Deployment
+	for _, componentGetterFunc := range componentry.Components {
+		component := componentGetterFunc(
+			cmdoputils.CRVersionOrDefaultVersion(
+				cr.Spec.Version,
+				componentry.CertManagerDefaultVersion),
+		)
+		deploys = append(deploys, newDeployment(component, cr, getDeploymentCustomizations(cr, component)))
+	}
+
+	return deploys
+}
+
 // GetDeploymentCustomizations will return a DeploymentCustomization object for a given
 // CertManagerComponent. This helps derive the resulting DeploymentSpec for the component.
 func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManagerComponent) DeploymentCustomizations {
@@ -168,6 +183,32 @@ func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManage
 
 	// check if the any container arguments are being overridden.
 	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides.GetOverridesFor(comp.GetName()); argOverrides.Raw != nil {
+		dc.ContainerArgs = *argOverrides
+	} else {
+		// if argOverrides.Raw is nil, that implies the user did not set the override for this component.
+		// If we pass a nil value to this, we end up setting our arguments to null which sets the container
+		// args to null, causing no args to get set (not even defaults).
+		// Instead, set it to an empty byte slice.
+		dc.ContainerArgs = runtime.RawExtension{Raw: []byte{}}
+	}
+
+	return dc
+}
+
+// getDeploymentCustomizations will return a DeploymentCustomization object for a given
+// CertManagerComponent. This helps derive the resulting DeploymentSpec for the component.
+func getDeploymentCustomizations(cr operatorsv1alpha1.CertManagerDeployment, comp componentry.CertManagerComponent) DeploymentCustomizations {
+	dc := DeploymentCustomizations{}
+
+	// Check if the image has been overridden
+	imageOverrides := cr.Spec.DangerZone.ImageOverrides
+	if !reflect.DeepEqual(imageOverrides, map[string]string{}) {
+		// imageOverrides is not empty, get the image value for this component.
+		dc.ContainerImage = imageOverrides[comp.GetName()]
+	}
+
+	// check if the any container arguments are being overridden.
+	if argOverrides := cr.Spec.DangerZone.ContainerArgOverrides.GetOverridesFor(comp.GetName()); argOverrides.Raw != nil {
 		dc.ContainerArgs = *argOverrides
 	} else {
 		// if argOverrides.Raw is nil, that implies the user did not set the override for this component.

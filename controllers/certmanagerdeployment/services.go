@@ -139,6 +139,23 @@ func (r *ResourceGetter) GetServices() []*corev1.Service {
 	return svcs
 }
 
+// GetServicesFor will return new services for the CR.
+func GetServicesFor(cr operatorsv1alpha1.CertManagerDeployment) []*corev1.Service {
+	var svcs []*corev1.Service
+	for _, componentGetterFunc := range componentry.Components {
+		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
+			cr.Spec.Version,
+			componentry.CertManagerDefaultVersion))
+		// Not all components have services. If a component has an uninitialized
+		// corev1.ServiceSpec, then we skip it here.
+		if !reflect.DeepEqual(component.GetService(), corev1.ServiceSpec{}) {
+			svcs = append(svcs, newService(component, cr))
+		}
+	}
+
+	return svcs
+}
+
 // newService returns a service object for a custom resource.
 func newService(comp componentry.CertManagerComponent, cr operatorsv1alpha1.CertManagerDeployment) *corev1.Service {
 	svc := &corev1.Service{

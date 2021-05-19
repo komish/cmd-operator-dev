@@ -23,6 +23,17 @@ func (r *ResourceGetter) GetNamespace() *corev1.Namespace {
 	}
 }
 
+// GetNamespaceFor returns a namespace object for a given CertManagerDeployment resource.
+// This namespace value is standardized, and as such is not dictated by the custom resource.
+func GetNamespace() *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   componentry.CertManagerDeploymentNamespace,
+			Labels: componentry.StandardLabels,
+		},
+	}
+}
+
 // reconcileNamespace will reconcile the Namespace resources for a given CertManagerDeployment resource.
 func (r *CertManagerDeploymentReconciler) reconcileNamespace(instance *operatorsv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
 	reqLogger.Info("Starting reconciliation: namespace")
