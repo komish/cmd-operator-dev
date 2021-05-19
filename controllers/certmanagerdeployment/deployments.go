@@ -138,21 +138,6 @@ type DeploymentCustomizations struct {
 	ContainerArgs  runtime.RawExtension
 }
 
-// GetDeployments returns Deployment objects for a given CertManagerDeployment resource.
-func (r *ResourceGetter) GetDeployments() []*appsv1.Deployment {
-	var deploys []*appsv1.Deployment
-	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(
-			cmdoputils.CRVersionOrDefaultVersion(
-				r.CustomResource.Spec.Version,
-				componentry.CertManagerDefaultVersion),
-		)
-		deploys = append(deploys, newDeployment(component, r.CustomResource, r.GetDeploymentCustomizations(component)))
-	}
-
-	return deploys
-}
-
 // GetDeploymentsFor returns Deployment objects for a given CertManagerDeployment resource.
 func GetDeploymentsFor(cr operatorsv1alpha1.CertManagerDeployment) []*appsv1.Deployment {
 	var deploys []*appsv1.Deployment
@@ -166,32 +151,6 @@ func GetDeploymentsFor(cr operatorsv1alpha1.CertManagerDeployment) []*appsv1.Dep
 	}
 
 	return deploys
-}
-
-// GetDeploymentCustomizations will return a DeploymentCustomization object for a given
-// CertManagerComponent. This helps derive the resulting DeploymentSpec for the component.
-func (r *ResourceGetter) GetDeploymentCustomizations(comp componentry.CertManagerComponent) DeploymentCustomizations {
-	dc := DeploymentCustomizations{}
-
-	// Check if the image has been overridden
-	imageOverrides := r.CustomResource.Spec.DangerZone.ImageOverrides
-	if !reflect.DeepEqual(imageOverrides, map[string]string{}) {
-		// imageOverrides is not empty, get the image value for this component.
-		dc.ContainerImage = imageOverrides[comp.GetName()]
-	}
-
-	// check if the any container arguments are being overridden.
-	if argOverrides := r.CustomResource.Spec.DangerZone.ContainerArgOverrides.GetOverridesFor(comp.GetName()); argOverrides.Raw != nil {
-		dc.ContainerArgs = *argOverrides
-	} else {
-		// if argOverrides.Raw is nil, that implies the user did not set the override for this component.
-		// If we pass a nil value to this, we end up setting our arguments to null which sets the container
-		// args to null, causing no args to get set (not even defaults).
-		// Instead, set it to an empty byte slice.
-		dc.ContainerArgs = runtime.RawExtension{Raw: []byte{}}
-	}
-
-	return dc
 }
 
 // getDeploymentCustomizations will return a DeploymentCustomization object for a given

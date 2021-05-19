@@ -13,16 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// GetNamespace returns a namespace object for a given CertManagerDeployment resource.
-func (r *ResourceGetter) GetNamespace() *corev1.Namespace {
-	return &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   componentry.CertManagerDeploymentNamespace,
-			Labels: componentry.StandardLabels,
-		},
-	}
-}
-
 // GetNamespaceFor returns a namespace object for a given CertManagerDeployment resource.
 // This namespace value is standardized, and as such is not dictated by the custom resource.
 func GetNamespace() *corev1.Namespace {

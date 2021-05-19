@@ -112,27 +112,6 @@ func (r *CertManagerDeploymentReconciler) reconcileClusterRoleBindings(instance 
 	return nil
 }
 
-// GetClusterRoleBindings will return new ClusterRoleBinding objects for the CR.
-func (r *ResourceGetter) GetClusterRoleBindings() []*rbacv1.ClusterRoleBinding {
-	var crbs []*rbacv1.ClusterRoleBinding
-
-	for _, compGetterFunc := range componentry.Components {
-		component := compGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
-			r.CustomResource.Spec.Version,
-			componentry.CertManagerDefaultVersion))
-		for _, clusterRole := range component.GetClusterRoles() {
-			if !clusterRole.IsAggregate() {
-				// only create bindings to non-aggregate cluster roles.
-				crole := newClusterRole(component, clusterRole, r.CustomResource)
-				sa := newServiceAccount(component, r.CustomResource)
-				crbs = append(crbs, newClusterRoleBinding(component, r.CustomResource, crole, sa))
-			}
-		}
-	}
-
-	return crbs
-}
-
 // GetClusterRoleBindingsFor will return new ClusterRoleBinding objects for the CR.
 func GetClusterRoleBindingsFor(cr operatorsv1alpha1.CertManagerDeployment) []*rbacv1.ClusterRoleBinding {
 	var crbs []*rbacv1.ClusterRoleBinding

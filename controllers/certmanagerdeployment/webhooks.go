@@ -215,39 +215,6 @@ func (r *CertManagerDeploymentReconciler) reconcileWebhooks(instance *operatorsv
 	return nil
 }
 
-// GetMutatingWebhooks returns MutatingWebhookConfiguration objects for a given CertManagerDeployment
-// custom resource.
-func (r *ResourceGetter) GetMutatingWebhooks() []*adregv1.MutatingWebhookConfiguration {
-	var hooks []*adregv1.MutatingWebhookConfiguration
-	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(
-			cmdoputils.CRVersionOrDefaultVersion(
-				r.CustomResource.Spec.Version,
-				componentry.CertManagerDefaultVersion),
-		)
-		for _, webhookData := range component.GetWebhooks() {
-			if webhookData.IsEmpty() {
-				// The component doesn't have any webhooks
-				return nil
-			}
-
-			mutateHooks := webhookData.GetMutatingWebhooks()
-			if len(mutateHooks) == 0 {
-				// The component doesn't have any mutating webhooks so it must
-				// have validating webhooks only
-				return nil
-			}
-
-			for _, validateHook := range mutateHooks {
-				hooks = append(hooks, newMutatingWebhook(component, r.CustomResource, webhookData.GetName(), validateHook, webhookData.GetAnnotations()))
-			}
-		}
-
-	}
-
-	return hooks
-}
-
 // GetMutatingWebhooksFor returns MutatingWebhookConfiguration objects for a given CertManagerDeployment
 // custom resource.
 func GetMutatingWebhooksFor(cr operatorsv1alpha1.CertManagerDeployment) []*adregv1.MutatingWebhookConfiguration {
@@ -273,39 +240,6 @@ func GetMutatingWebhooksFor(cr operatorsv1alpha1.CertManagerDeployment) []*adreg
 
 			for _, validateHook := range mutateHooks {
 				hooks = append(hooks, newMutatingWebhook(component, cr, webhookData.GetName(), validateHook, webhookData.GetAnnotations()))
-			}
-		}
-
-	}
-
-	return hooks
-}
-
-// GetValidatingWebhooks returns ValidatingWebhookConfiguration objects for a given CertManagerDeployment
-// custom resource.
-func (r *ResourceGetter) GetValidatingWebhooks() []*adregv1.ValidatingWebhookConfiguration {
-	var hooks []*adregv1.ValidatingWebhookConfiguration
-	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(
-			cmdoputils.CRVersionOrDefaultVersion(
-				r.CustomResource.Spec.Version,
-				componentry.CertManagerDefaultVersion),
-		)
-		for _, webhookData := range component.GetWebhooks() {
-			if webhookData.IsEmpty() {
-				// The component doesn't have any webhooks
-				return nil
-			}
-
-			validateHooks := webhookData.GetValidatingWebhooks()
-			if len(validateHooks) == 0 {
-				// The component doesn't have any validating webhooks so it must
-				// have mutating webhooks only
-				return nil
-			}
-
-			for _, validateHook := range validateHooks {
-				hooks = append(hooks, newValidatingWebhook(component, r.CustomResource, webhookData.GetName(), validateHook, webhookData.GetAnnotations()))
 			}
 		}
 

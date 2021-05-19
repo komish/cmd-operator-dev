@@ -107,22 +107,6 @@ func (r *CertManagerDeploymentReconciler) reconcileRoles(instance *operatorsv1al
 	return err
 }
 
-// GetRoles will return new role objects for each CertManagerComponent associated
-// with the CustomResource.
-func (r *ResourceGetter) GetRoles() []*rbacv1.Role {
-	var roles []*rbacv1.Role
-	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
-			r.CustomResource.Spec.Version,
-			componentry.CertManagerDefaultVersion))
-		for _, role := range component.GetRoles() {
-			roles = append(roles, newRole(component, role, r.CustomResource))
-		}
-	}
-
-	return roles
-}
-
 // GetRolesFor will return new role objects for each CertManagerComponent associated
 // with the CustomResource.
 func GetRolesFor(cr operatorsv1alpha1.CertManagerDeployment) []*rbacv1.Role {

@@ -115,23 +115,6 @@ func (r *CertManagerDeploymentReconciler) reconcileRoleBindings(instance *operat
 	return nil
 }
 
-// GetRoleBindings will return all RoleBindings for the custom resource.
-func (r *ResourceGetter) GetRoleBindings() []*rbacv1.RoleBinding {
-	var rbs []*rbacv1.RoleBinding
-	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
-			r.CustomResource.Spec.Version,
-			componentry.CertManagerDefaultVersion))
-		for _, role := range component.GetRoles() {
-			// need the role and the service account for the CR
-			role := newRole(component, role, r.CustomResource)
-			sa := newServiceAccount(component, r.CustomResource)
-			rbs = append(rbs, newRoleBinding(component, r.CustomResource, role, sa))
-		}
-	}
-	return rbs
-}
-
 // GetRoleBindingsFor will return all RoleBindings for the custom resource.
 func GetRoleBindingsFor(cr operatorsv1alpha1.CertManagerDeployment) []*rbacv1.RoleBinding {
 	var rbs []*rbacv1.RoleBinding

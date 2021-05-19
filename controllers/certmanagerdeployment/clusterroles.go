@@ -113,20 +113,6 @@ func (r *CertManagerDeploymentReconciler) reconcileClusterRoles(instance *operat
 	return nil
 }
 
-// GetClusterRoles will return all ClusterRoles for CertManageComponents.
-func (r *ResourceGetter) GetClusterRoles() []*rbacv1.ClusterRole {
-	var result []*rbacv1.ClusterRole
-	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
-			r.CustomResource.Spec.Version,
-			componentry.CertManagerDefaultVersion))
-		for _, clusterRole := range component.GetClusterRoles() {
-			result = append(result, newClusterRole(component, clusterRole, r.CustomResource))
-		}
-	}
-	return result
-}
-
 // GetClusterRolesFor will return all ClusterRoles for CertManageComponents.
 func GetClusterRolesFor(cr operatorsv1alpha1.CertManagerDeployment) []*rbacv1.ClusterRole {
 	var result []*rbacv1.ClusterRole

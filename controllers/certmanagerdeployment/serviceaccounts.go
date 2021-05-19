@@ -53,19 +53,6 @@ func (r *CertManagerDeploymentReconciler) reconcileServiceAccounts(instance *ope
 }
 
 // GetServiceAccounts will return new service account objects for the CR.
-func (r *ResourceGetter) GetServiceAccounts() []*corev1.ServiceAccount {
-	var sas []*corev1.ServiceAccount
-	for _, componentGetterFunc := range componentry.Components {
-		component := componentGetterFunc(cmdoputils.CRVersionOrDefaultVersion(
-			r.CustomResource.Spec.Version,
-			componentry.CertManagerDefaultVersion))
-		sa := newServiceAccount(component, r.CustomResource)
-		sas = append(sas, sa)
-	}
-	return sas
-}
-
-// GetServiceAccounts will return new service account objects for the CR.
 func GetServiceAccountsFor(cr operatorsv1alpha1.CertManagerDeployment) []*corev1.ServiceAccount {
 	var sas []*corev1.ServiceAccount
 	for _, componentGetterFunc := range componentry.Components {
