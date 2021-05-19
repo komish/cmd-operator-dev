@@ -28,8 +28,8 @@ func (r *CertManagerDeploymentReconciler) reconcileCRDs(instance *operatorsv1alp
 	reqLogger.Info("Starting reconciliation: CRDs")
 	defer reqLogger.Info("Ending reconciliation: CRDs")
 
-	getter := ResourceGetter{CustomResource: *instance}
-	crds, err := getter.GetCRDs()
+	crds, err := GetCRDsFor(*instance)
+
 	if err != nil {
 		reqLogger.Error(err, "Failed to get CRDs")
 		// Something happened when trying to get CRDs for this reconciliation
@@ -168,8 +168,8 @@ func (r *ResourceGetter) GetCRDs() ([]*apiextv1.CustomResourceDefinition, error)
 	return res, nil
 }
 
-// GetCRDs returns CustomResourceDefinitions for a given CertManagerDeployment.
-func GetCRDs(cr operatorsv1alpha1.CertManagerDeployment) ([]*apiextv1.CustomResourceDefinition, error) {
+// GetCRDsFor returns CustomResourceDefinitions for a given CertManagerDeployment.
+func GetCRDsFor(cr operatorsv1alpha1.CertManagerDeployment) ([]*apiextv1.CustomResourceDefinition, error) {
 	// The managed CRD representations are coming directly from YAML files
 	// for a given release. These YAMLs are released by the cert-manager
 	// project for each release of the application to ensure compatibility

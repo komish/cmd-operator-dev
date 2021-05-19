@@ -20,8 +20,7 @@ func (r *CertManagerDeploymentReconciler) reconcileServiceAccounts(instance *ope
 	defer reqLogger.Info("Ending reconciliation: service accounts")
 	var err error
 
-	getter := ResourceGetter{CustomResource: *instance}
-	sas := getter.GetServiceAccounts()
+	sas := GetServiceAccountsFor(*instance)
 
 	for _, sa := range sas {
 		if err := controllerutil.SetControllerReference(instance, sa, r.Scheme); err != nil {

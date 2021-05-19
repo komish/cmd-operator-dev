@@ -20,8 +20,7 @@ func (r *CertManagerDeploymentReconciler) reconcileClusterRoleBindings(instance 
 	reqLogger.Info("Starting reconciliation: cluster role bindings")
 	defer reqLogger.Info("Ending reconciliation: cluster role bindings")
 
-	getter := ResourceGetter{CustomResource: *instance}
-	crbs := getter.GetClusterRoleBindings()
+	crbs := GetClusterRoleBindingsFor(*instance)
 
 	for _, clusterRoleBinding := range crbs {
 		if err := controllerutil.SetControllerReference(instance, clusterRoleBinding, r.Scheme); err != nil {

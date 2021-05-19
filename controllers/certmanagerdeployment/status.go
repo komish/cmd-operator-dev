@@ -28,11 +28,10 @@ func (r *CertManagerDeploymentReconciler) reconcileStatus(instance *operatorsv1a
 	// and get a getter to query for expected states of resources.
 	status := getUninitializedCertManagerDeploymentStatus()
 	obj := instance.DeepCopy()
-	getter := ResourceGetter{CustomResource: *instance}
 
 	r.reconcileStatusVersion(status, cmdoputils.CRVersionOrDefaultVersion(instance.Spec.Version, componentry.CertManagerDefaultVersion))
-	r.reconcileStatusDeploymentsHealthy(status, getter, reqLogger)
-	r.reconcileStatusCRDsHealthy(status, getter, reqLogger)
+	r.reconcileStatusDeploymentsHealthy(status, *instance, reqLogger)
+	r.reconcileStatusCRDsHealthy(status, *instance, reqLogger)
 	r.reconcileStatusPhase(status)
 
 	// Update the object with new status
@@ -192,20 +191,20 @@ func crdsAreReady(existingCRDs []*apiextv1.CustomResourceDefinition) corev1.Cond
 
 // reconcileStatusVersion is a subreconciliation function called by ReconcileStatus that injects the version
 // of cert-manager desired into the status field.
-func (r *CertManagerDeploymentReconciler) reconcileStatusVersion(inStatus *operatorsv1alpha1.CertManagerDeploymentStatus, vers string) *operatorsv1alpha1.CertManagerDeploymentStatus {
-	inStatus.Version = vers
+func (r *CertManagerDeploymentReconciler) reconcileStatusVersion(statusToUpdate *operatorsv1alpha1.CertManagerDeploymentStatus, vers string) *operatorsv1alpha1.CertManagerDeploymentStatus {
+	statusToUpdate.Version = vers
 	// TODO() check deployed versions of things to make sure they reflect the right version.
 	// requires updating all types that we create with some form of identifier stating which
 	// version is deployed for that CR.
-	return inStatus
+	return statusToUpdate
 }
 
 // reconcileStatusDeploymentsHealthy updated the DeploymentsHealthy status field. This
 // checks if the deployments expected for the CR instance exists per the API and are
 // ready and available with the expected replica count.
 func (r *CertManagerDeploymentReconciler) reconcileStatusDeploymentsHealthy(
-	inStatus *operatorsv1alpha1.CertManagerDeploymentStatus,
-	rg ResourceGetter,
+	statusToUpdate *operatorsv1alpha1.CertManagerDeploymentStatus,
+	instance operatorsv1alpha1.CertManagerDeployment,
 	reqLogger logr.Logger) *operatorsv1alpha1.CertManagerDeploymentStatus {
 
 	condition := operatorsv1alpha1.CertManagerDeploymentCondition{
@@ -215,7 +214,7 @@ func (r *CertManagerDeploymentReconciler) reconcileStatusDeploymentsHealthy(
 		Message: "Deployment available and ready pods matches desired.",
 	}
 
-	existingDeploys, ok := queryAPIForExpectedDeployments(r, rg, reqLogger)
+	existingDeploys, ok := queryAPIForExpectedDeployments(r, instance, reqLogger)
 	if existingDeploys == nil {
 		reqLogger.Info("unable to determine status of expected deployments for this instance")
 	}
@@ -225,20 +224,20 @@ func (r *CertManagerDeploymentReconciler) reconcileStatusDeploymentsHealthy(
 	}
 
 	condition.LastUpdateTime = metav1.Now()
-	inStatus.Conditions = append(inStatus.Conditions, condition)
+	statusToUpdate.Conditions = append(statusToUpdate.Conditions, condition)
 
 	// bubble up deployment conditions to the CR.
-	updateStatusDeploymentConditions(inStatus, existingDeploys)
+	updateStatusDeploymentConditions(statusToUpdate, existingDeploys)
 
-	return inStatus
+	return statusToUpdate
 }
 
 // reconcileStatusCRDsHealthy updated the DeploymentsHealthy status field. This
 // checks if the deployments expected for the CR instance exists per the API and are
 // ready and available with the expected replica count.
 func (r *CertManagerDeploymentReconciler) reconcileStatusCRDsHealthy(
-	inStatus *operatorsv1alpha1.CertManagerDeploymentStatus,
-	rg ResourceGetter,
+	statusToUpdate *operatorsv1alpha1.CertManagerDeploymentStatus,
+	instance operatorsv1alpha1.CertManagerDeployment,
 	reqLogger logr.Logger) *operatorsv1alpha1.CertManagerDeploymentStatus {
 
 	condition := operatorsv1alpha1.CertManagerDeploymentCondition{
@@ -247,7 +246,7 @@ func (r *CertManagerDeploymentReconciler) reconcileStatusCRDsHealthy(
 		Reason:  "AllCRDsHealthy",
 		Message: "CRDs NamesAccepted and Established Conditions are true.",
 	}
-	existingCRDs, ok := queryAPIForExpectedCRDs(r, rg, reqLogger)
+	existingCRDs, ok := queryAPIForExpectedCRDs(r, instance, reqLogger)
 	if existingCRDs == nil {
 		reqLogger.Info("unable to determine status of expected CRDs for this instance")
 	}
@@ -257,23 +256,23 @@ func (r *CertManagerDeploymentReconciler) reconcileStatusCRDsHealthy(
 	}
 
 	condition.LastUpdateTime = metav1.Now()
-	inStatus.Conditions = append(inStatus.Conditions, condition)
+	statusToUpdate.Conditions = append(statusToUpdate.Conditions, condition)
 
 	// bubble up crd conditions to the CR
-	updateStatusCRDConditions(inStatus, existingCRDs)
+	updateStatusCRDConditions(statusToUpdate, existingCRDs)
 
-	return inStatus
+	return statusToUpdate
 }
 
 // queryAPIForExpectedDeployments will check that the deployments expected for a given instance actually
 // exist in the API. will return ok as true when all were found, and false if not. Will return the
 // deployment slice as nil if an error other than IsNotfound was encountered trying to obtain the data, as well
 // as return ok as false.
-func queryAPIForExpectedDeployments(client client.Client, rg ResourceGetter, reqLogger logr.Logger) ([]*appsv1.Deployment, bool) {
+func queryAPIForExpectedDeployments(client client.Client, cr operatorsv1alpha1.CertManagerDeployment, reqLogger logr.Logger) ([]*appsv1.Deployment, bool) {
 	foundDeployments := make([]*appsv1.Deployment, 0)
 	var ok bool
 
-	expectedDeployments := rg.GetDeployments()
+	expectedDeployments := GetDeploymentsFor(cr)
 	for _, deploy := range expectedDeployments {
 		receiver := appsv1.Deployment{}
 		err := client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, &receiver)
@@ -300,11 +299,11 @@ func queryAPIForExpectedDeployments(client client.Client, rg ResourceGetter, req
 // exist in the API. will return ok as true when all were found, and false if not. Will return the
 // CRD slice as nil if an error other than IsNotfound was encountered trying to obtain the data, as well as
 // set return ok as false.
-func queryAPIForExpectedCRDs(client client.Client, rg ResourceGetter, reqLogger logr.Logger) ([]*apiextv1.CustomResourceDefinition, bool) {
+func queryAPIForExpectedCRDs(client client.Client, cr operatorsv1alpha1.CertManagerDeployment, reqLogger logr.Logger) ([]*apiextv1.CustomResourceDefinition, bool) {
 	foundCRDs := make([]*apiextv1.CustomResourceDefinition, 0)
 	var ok bool
 
-	expectedCRDs, err := rg.GetCRDs()
+	expectedCRDs, err := GetCRDsFor(cr)
 	if err != nil {
 		// GetCRDs returns an error in case it can't read the CRD from the filesystem.
 		// we have to handle it.
@@ -335,10 +334,10 @@ func queryAPIForExpectedCRDs(client client.Client, rg ResourceGetter, reqLogger 
 
 // reconcileStatusPhase will update the status phase indicator based on the discovered status of deployments
 // and CRDs. This must run after DeploymentsHealthy and CRDsHealthy have been updated by the status reconciler.
-func (r *CertManagerDeploymentReconciler) reconcileStatusPhase(inStatus *operatorsv1alpha1.CertManagerDeploymentStatus) *operatorsv1alpha1.CertManagerDeploymentStatus {
+func (r *CertManagerDeploymentReconciler) reconcileStatusPhase(statusToUpdate *operatorsv1alpha1.CertManagerDeploymentStatus) *operatorsv1alpha1.CertManagerDeploymentStatus {
 	var crdsHealthy bool
 	var deploymentsHealthy bool
-	cmap := conditionsAsMap(inStatus.Conditions)
+	cmap := conditionsAsMap(statusToUpdate.Conditions)
 
 	// query for the conditions and parse the evaluative state
 	if condition, ok := cmap[operatorsv1alpha1.ConditionCRDsAreReady]; ok {
@@ -370,18 +369,18 @@ func (r *CertManagerDeploymentReconciler) reconcileStatusPhase(inStatus *operato
 	}
 
 	if crdsHealthy && deploymentsHealthy {
-		inStatus.Phase = componentry.StatusPhaseRunning
+		statusToUpdate.Phase = componentry.StatusPhaseRunning
 	} else if !crdsHealthy || !deploymentsHealthy {
-		inStatus.Phase = componentry.StatusPhasePending
+		statusToUpdate.Phase = componentry.StatusPhasePending
 	}
 
-	return inStatus
+	return statusToUpdate
 }
 
 // updateStatusDeploymentConditions adds the conditions associated with found managed deployments to the status block for the CertManagerDeployment.
 // This is an overwrite action and only stores conditions that are found in the API server. Deployments that are not in the APIServer when this is
 // executed will not be stored, regardless of whether they should exist. This can indicate an issue reaching a running phase for the CertManagerDeployment.
-func updateStatusDeploymentConditions(inStatus *operatorsv1alpha1.CertManagerDeploymentStatus, existingDeploys []*appsv1.Deployment) *operatorsv1alpha1.CertManagerDeploymentStatus {
+func updateStatusDeploymentConditions(statusToUpdate *operatorsv1alpha1.CertManagerDeploymentStatus, existingDeploys []*appsv1.Deployment) *operatorsv1alpha1.CertManagerDeploymentStatus {
 	conditions := make([]operatorsv1alpha1.ManagedDeploymentWithConditions, 0)
 	for _, deploy := range existingDeploys {
 		// we could use a NamespacedName struct here but there's no need at the moment, we just want the format.
@@ -394,14 +393,14 @@ func updateStatusDeploymentConditions(inStatus *operatorsv1alpha1.CertManagerDep
 		conditions = append(conditions, deployCondition)
 	}
 
-	inStatus.DeploymentConditions = conditions
-	return inStatus
+	statusToUpdate.DeploymentConditions = conditions
+	return statusToUpdate
 }
 
 // updateStatusCRDConditions adds the conditions associated with found managed CRDs to the status block for the CertManagerDeployment.
 // This is an overwrite action and only stores conditions that are found in the API server. CRDs that are not in the APIServer when this is
 // executed will not be stored, regardless of whether they should exist. This can indicate an issue reaching a running phase for the CertManagerDeployment.
-func updateStatusCRDConditions(inStatus *operatorsv1alpha1.CertManagerDeploymentStatus, existingCRDs []*apiextv1.CustomResourceDefinition) *operatorsv1alpha1.CertManagerDeploymentStatus {
+func updateStatusCRDConditions(statusToUpdate *operatorsv1alpha1.CertManagerDeploymentStatus, existingCRDs []*apiextv1.CustomResourceDefinition) *operatorsv1alpha1.CertManagerDeploymentStatus {
 	conditions := make([]operatorsv1alpha1.ManagedCRDWithConditions, 0)
 	for _, crd := range existingCRDs {
 		crdCondition := operatorsv1alpha1.ManagedCRDWithConditions{
@@ -412,8 +411,8 @@ func updateStatusCRDConditions(inStatus *operatorsv1alpha1.CertManagerDeployment
 		conditions = append(conditions, crdCondition)
 	}
 
-	inStatus.CRDConditions = conditions
-	return inStatus
+	statusToUpdate.CRDConditions = conditions
+	return statusToUpdate
 }
 
 // conditionsAsMap takes in a slice of conditions for the CertManagerDeployment resource and returns a map where the key is

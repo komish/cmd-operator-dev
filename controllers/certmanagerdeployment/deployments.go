@@ -29,8 +29,7 @@ func (r *CertManagerDeploymentReconciler) reconcileDeployments(instance *operato
 	reqLogger.Info("Starting reconciliation: deployments")
 	defer reqLogger.Info("Ending reconciliation: deployments")
 
-	getter := ResourceGetter{CustomResource: *instance}
-	deps := getter.GetDeployments()
+	deps := GetDeploymentsFor(*instance)
 
 	for _, dep := range deps {
 		if err := controllerutil.SetControllerReference(instance, dep, r.Scheme); err != nil {

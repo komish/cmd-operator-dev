@@ -21,8 +21,7 @@ func (r *CertManagerDeploymentReconciler) reconcileServices(instance *operatorsv
 	reqLogger.Info("Starting reconciliation: services")
 	defer reqLogger.Info("Ending reconciliation: services")
 
-	getter := ResourceGetter{CustomResource: *instance}
-	svcs := getter.GetServices()
+	svcs := GetServicesFor(*instance)
 
 	// set controller reference on those objects
 	for _, svc := range svcs {

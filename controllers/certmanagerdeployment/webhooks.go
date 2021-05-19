@@ -20,9 +20,7 @@ func (r *CertManagerDeploymentReconciler) reconcileWebhooks(instance *operatorsv
 	reqLogger.Info("Starting reconciliation: webhooks")
 	defer reqLogger.Info("Ending reconciliation: webhooks")
 
-	getter := ResourceGetter{CustomResource: *instance}
-
-	mwhs := getter.GetMutatingWebhooks()
+	mwhs := GetMutatingWebhooksFor(*instance)
 
 	for _, mwh := range mwhs {
 		if err := controllerutil.SetControllerReference(instance, mwh, r.Scheme); err != nil {
@@ -119,7 +117,7 @@ func (r *CertManagerDeploymentReconciler) reconcileWebhooks(instance *operatorsv
 	}
 
 	// validating webhooks
-	vwhs := getter.GetValidatingWebhooks()
+	vwhs := GetValidatingWebhooksFor(*instance)
 	for _, vwh := range vwhs {
 		if err := controllerutil.SetControllerReference(instance, vwh, r.Scheme); err != nil {
 			return err

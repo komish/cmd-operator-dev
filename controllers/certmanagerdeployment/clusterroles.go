@@ -19,8 +19,7 @@ func (r *CertManagerDeploymentReconciler) reconcileClusterRoles(instance *operat
 	reqLogger.Info("Starting reconciliation: cluster roles")
 	defer reqLogger.Info("Ending reconciliation: cluster roles")
 
-	getter := ResourceGetter{CustomResource: *instance}
-	crls := getter.GetClusterRoles()
+	crls := GetClusterRolesFor(*instance)
 
 	for _, clusterRole := range crls {
 		if err := controllerutil.SetControllerReference(instance, clusterRole, r.Scheme); err != nil {
