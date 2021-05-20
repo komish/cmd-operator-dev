@@ -18,10 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var (
-	crdMap = map[string][]string{}
-)
-
 // reconcileCRDs reconciles CustomResourceDefinition resource(s) for a given CertManagerDeployment resource.
 func (r *CertManagerDeploymentReconciler) reconcileCRDs(instance *operatorsv1alpha1.CertManagerDeployment, reqLogger logr.Logger) error {
 
@@ -104,8 +100,6 @@ func (r *CertManagerDeploymentReconciler) reconcileCRDs(instance *operatorsv1alp
 				updated.Spec = crd.Spec
 			}
 
-			// TODO(): should we merge instead of
-			// clobbering these updates?
 			if !labelsMatch {
 				updated.ObjectMeta.Labels = crd.GetLabels()
 			}
@@ -220,7 +214,7 @@ func getCRDFromFile(filePath string) (*apiextv1.CustomResourceDefinition, error)
 	// ensure we got a CustomResourceDefinition
 	crd, ok := obj.(*apiextv1.CustomResourceDefinition)
 	if !ok {
-		return nil, fmt.Errorf("Expected CustomResourceDefinition but got type %T from file at path %s", obj, filePath)
+		return nil, fmt.Errorf("expected CustomResourceDefinition but got type %T from file at path %s", obj, filePath)
 	}
 
 	return crd, nil
@@ -238,7 +232,7 @@ func addPathPrefixToPathList(pathPrefix string, paths []string) []string {
 // crdPathOrWD returns the path where the CRDs should be found or the current working directory
 // for the binary.
 func crdPathOrWD() string {
-	// TODO(): handle this error
+	// TODO: handle this error
 	dir, _ := os.Getwd()
 	return dir
 }

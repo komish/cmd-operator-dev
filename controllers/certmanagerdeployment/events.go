@@ -17,7 +17,7 @@ const (
 	// EventTypeWarning is a warning event indicating something may go wrong.
 	EventTypeWarning = corev1.EventTypeWarning
 	// EventTypeError indicates that something has gone wrong.
-	// TODO(): if this doesn't get used, remove and revert to corev1.EventTypes only
+	// TODO: if this doesn't get used, remove and revert to corev1.EventTypes only
 	EventTypeError = "Error"
 )
 

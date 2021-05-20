@@ -134,8 +134,7 @@ func GetRoleBindingsFor(cr operatorsv1alpha1.CertManagerDeployment) []*rbacv1.Ro
 
 // newRoleBinding will return a new RoleBinding object for a given CertManagerComponent
 func newRoleBinding(comp componentry.CertManagerComponent, cr operatorsv1alpha1.CertManagerDeployment, role *rbacv1.Role, sa *corev1.ServiceAccount) *rbacv1.RoleBinding {
-	var rb rbacv1.RoleBinding
-	rb = rbacv1.RoleBinding{
+	rb := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      role.GetName(),
 			Namespace: componentry.CertManagerDeploymentNamespace,

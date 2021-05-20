@@ -91,7 +91,7 @@ func (r *CertManagerDeploymentReconciler) reconcileClusterRoleBindings(instance 
 			}
 
 			if !labelsMatch {
-				// TODO(): should we avoid clobbering and instead just add our labels?
+				// TODO: Avoid clobbering anything other than the labels we want to add.
 				updated.ObjectMeta.Labels = clusterRoleBinding.GetLabels()
 			}
 
@@ -143,8 +143,6 @@ func newClusterRoleBinding(comp componentry.CertManagerComponent, cr operatorsv1
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				// TODO(?): replace hard-coded kind based on the object that's used here. Couldn't find
-				// a way to get the right string.
 				Kind:      "ServiceAccount",
 				Namespace: sa.GetNamespace(),
 				Name:      sa.GetName(),

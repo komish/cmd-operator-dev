@@ -232,7 +232,7 @@ var _ = Describe(
 					}
 
 					// mutating webhook configuration
-					By(fmt.Sprintf("creating the expected mutating webhook configuration: cert-manager-webhook"), func() {
+					By("creating the expected mutating webhook configuration: cert-manager-webhook", func() {
 						Eventually(func() bool {
 							var recv adregv1.MutatingWebhookConfiguration
 

@@ -108,12 +108,10 @@ func (r *CertManagerDeploymentReconciler) reconcileDeployments(instance *operato
 			}
 
 			if !labelsMatch {
-				// TODO(): should we avoid clobbering and instead just add our labels?
 				updated.ObjectMeta.Labels = dep.GetLabels()
 			}
 
 			if !annotsMatch {
-				// TODO(): should we avoid clobbering and instead just add our annotations?
 				updated.ObjectMeta.Annotations = dep.GetAnnotations()
 			}
 
@@ -204,8 +202,8 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 
 	// If the CR contains a customized container image for the component, override our deployment
 	if cstm.ContainerImage != "" {
-		// TODO(): I'm assuming a single container image per deployment for the components because
-		// That is what's true today. If this changes, this will need to be updated.
+		// TODO: Assumes a single container, if additional containers are added, this
+		// will need to be updated.
 		deploy.Spec.Template.Spec.Containers[0].Image = cstm.ContainerImage
 	}
 
@@ -216,7 +214,6 @@ func newDeployment(comp componentry.CertManagerComponent, cr operatorsv1alpha1.C
 	f := overrideConfig{Flags: cstm.ContainerArgs}
 	userDefinedArgs, _ := json.Marshal(f)
 
-	// TODO: handling this error requires some refactor, but we probably need to do it.
 	result, err := resourcemerge.MergePrunedProcessConfig(
 		certmanagerconfigs.GetEmptyConfigFor(comp.GetName(), cmdoputils.CRVersionOrDefaultVersion(cr.Spec.Version, componentry.CertManagerDefaultVersion)), // the schema
 		specialMergeRules, // we have no merge rules

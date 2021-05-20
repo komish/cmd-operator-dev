@@ -91,7 +91,6 @@ func (r *CertManagerDeploymentReconciler) reconcileClusterRoles(instance *operat
 			}
 
 			if !labelsMatch {
-				// TODO(): should we avoid clobbering and instead just add our labels?
 				updated.ObjectMeta.Labels = clusterRole.GetLabels()
 			}
 

@@ -418,7 +418,7 @@ func updateStatusCRDConditions(statusToUpdate *operatorsv1alpha1.CertManagerDepl
 // conditionsAsMap takes in a slice of conditions for the CertManagerDeployment resource and returns a map where the key is
 // the condition.Type and the value is the condition itself.
 func conditionsAsMap(conditions []operatorsv1alpha1.CertManagerDeploymentCondition) map[operatorsv1alpha1.CertManagerDeploymentConditionType]operatorsv1alpha1.CertManagerDeploymentCondition {
-	c := make(map[operatorsv1alpha1.CertManagerDeploymentConditionType]operatorsv1alpha1.CertManagerDeploymentCondition, 0)
+	c := make(map[operatorsv1alpha1.CertManagerDeploymentConditionType]operatorsv1alpha1.CertManagerDeploymentCondition)
 
 	for _, cond := range conditions {
 		c[cond.Type] = cond
