@@ -68,7 +68,12 @@ func GetServiceAccountsFor(cr operatorsv1alpha1.CertManagerDeployment) []*corev1
 // newServiceAccount returns a service account object for a custom resource. These service accounts
 // are installed in the global target namespace.
 func newServiceAccount(comp componentry.CertManagerComponent, cr operatorsv1alpha1.CertManagerDeployment) *corev1.ServiceAccount {
+	automount := true
+
 	return &corev1.ServiceAccount{
+		// AutomountServiceAccountToken is not set in v1.2.0 but is set in v1.3.z.
+		// The default in k8s is true so this should not cause an issue if explicitly set
+		AutomountServiceAccountToken: &automount,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      comp.GetServiceAccountName(),
 			Namespace: componentry.CertManagerDeploymentNamespace,

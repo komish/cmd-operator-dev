@@ -243,7 +243,7 @@ var (
 			{
 				APIGroups: []string{"acme.cert-manager.io"},
 				Resources: []string{"challenges", "orders"},
-				Verbs:     []string{"get", "list", "watch"},
+				Verbs:     []string{"create", "delete", "deletecollection", "patch", "update"},
 			},
 		},
 	}
@@ -442,6 +442,39 @@ var (
 				APIGroups: []string{"admissionregistration.k8s.io"},
 				Resources: []string{"validatingwebhookconfigurations", "mutatingwebhookconfigurations"},
 				Verbs:     []string{"get", "list", "watch", "update"},
+			},
+		},
+	}
+
+	// clusterRoleDataForApprover is the RoleData object
+	// for the cert-manager-controller-approve:cert-manager-io
+	// ClusterRole.
+	clusterRoleDataForApprover = RoleData{
+		name:   "cert-manager-controller-approve:cert-manager-io",
+		labels: map[string]string{},
+		policyRules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"cert-manager.io"},
+				ResourceNames: []string{
+					"issuers.cert-manager.io/*",
+					"clusterissuers.cert-manager.io/*",
+				},
+				Resources: []string{"signers"},
+				Verbs:     []string{"approve"},
+			},
+		},
+	}
+
+	// clusterRoleDataForSubjectAccessReviews is the RoleData object
+	// for the cert-manager-webhook:subjectaccessreviews ClusterRole.
+	clusterRoleDataForSubjectAccessReviews = RoleData{
+		name:   "cert-manager-webhook:subjectaccessreviews",
+		labels: map[string]string{},
+		policyRules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"authorization.k8s.io"},
+				Resources: []string{"subjectaccessreviews"},
+				Verbs:     []string{"create"},
 			},
 		},
 	}

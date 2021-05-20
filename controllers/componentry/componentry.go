@@ -9,6 +9,7 @@ import (
 	adregv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,8 +52,9 @@ var (
 	// Changes to these values also need to be mirrored in the CertManageDeploymentSpec generation
 	// validation annotations.
 	SupportedVersions = map[string]bool{
-		"v1.1.0": true,
-		"v1.2.0": true, // latest
+		"v1.2.0": true,
+		"v1.3.0": true,
+		"v1.3.1": true, // latest
 	}
 
 	// Components are all ComponentGetterFunctions, one per Component, that we need
@@ -169,6 +171,7 @@ func GetComponentForController(version string) CertManagerComponent {
 			clusterRoleDataForOrders,
 			clusterRoleDataForCertificates,
 			clusterRoleDataForView,
+			clusterRoleDataForApprover,
 		},
 		roles: []RoleData{roleForController},
 		deployment: appsv1.DeploymentSpec{
@@ -196,7 +199,7 @@ func GetComponentForController(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-controller:v1.2.0",
+							Image:           "quay.io/jetstack/cert-manager-controller:v1.3.1",
 							ImagePullPolicy: "IfNotPresent",
 							Ports: []corev1.ContainerPort{
 								{
@@ -224,11 +227,52 @@ func GetComponentForController(version string) CertManagerComponent {
 
 	// handle other supported versions
 	switch version {
-	case "v1.1.0":
+	case "v1.3.0":
 		{
 			// Image changes for this version.
 			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-controller:%s", version)
+		}
+	case "v1.2.0":
+		{
+			// Image changes for this version.
+			container := &comp.deployment.Template.Spec.Containers[0] // we assume one container
+			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-controller:%s", version)
+
+			// The cert-manager-edit role is different for v1.2.0 so we
+			// replace the latest representation with our new representation
+			clusterRoleDataForEditv1_2_0 := RoleData{
+				name:        "cert-manager-edit",
+				isAggregate: true,
+				labels: map[string]string{
+					"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+					"rbac.authorization.k8s.io/aggregate-to-edit":  "true",
+				},
+				policyRules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{"cert-manager.io"},
+						Resources: []string{"certificates", "certificaterequests", "issuers"},
+						Verbs:     []string{"create", "delete", "deletecollection", "patch", "update"},
+					},
+					{
+						APIGroups: []string{"acme.cert-manager.io"},
+						Resources: []string{"challenges", "orders"},
+						Verbs:     []string{"get", "list", "watch"},
+					},
+				},
+			}
+
+			comp.clusterRoles = []RoleData{
+				clusterRoleDataForClusterIssuers,
+				clusterRoleDataForIssuers,
+				clusterRoleDataForChallenges,
+				clusterRoleDataForEditv1_2_0,
+				clusterRoleDataForIngressShim,
+				clusterRoleDataForOrders,
+				clusterRoleDataForCertificates,
+				clusterRoleDataForView,
+				clusterRoleDataForApprover,
+			}
 		}
 	}
 
@@ -267,7 +311,7 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.2.0",
+							Image:           "quay.io/jetstack/cert-manager-cainjector:v1.3.1",
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
@@ -278,7 +322,12 @@ func GetComponentForCAInjector(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v1.1.0":
+	case "v1.3.0":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-cainjector:%s", version)
+		}
+	case "v1.2.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-cainjector:%s", version)
@@ -302,7 +351,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 			"app.kubernetes.io/component": "webhook",
 			"app.kubernetes.io/name":      "webhook",
 		}, StandardLabels),
-		clusterRoles: []RoleData{},
+		clusterRoles: []RoleData{clusterRoleDataForSubjectAccessReviews},
 		roles:        []RoleData{roleForWebhook},
 		deployment: appsv1.DeploymentSpec{
 			Replicas: &oneReplica,
@@ -323,7 +372,7 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 									},
 								},
 							},
-							Image:           "quay.io/jetstack/cert-manager-webhook:v1.2.0",
+							Image:           "quay.io/jetstack/cert-manager-webhook:v1.3.1",
 							ImagePullPolicy: "IfNotPresent",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -457,7 +506,12 @@ func GetComponentForWebhook(version string) CertManagerComponent {
 	}
 
 	switch version {
-	case "v1.1.0":
+	case "v1.3.0":
+		{
+			container := &comp.deployment.Template.Spec.Containers[0]
+			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-webhook:%s", version)
+		}
+	case "v1.2.0":
 		{
 			container := &comp.deployment.Template.Spec.Containers[0]
 			container.Image = fmt.Sprintf("quay.io/jetstack/cert-manager-webhook:%s", version)

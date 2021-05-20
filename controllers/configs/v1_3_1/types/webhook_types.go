@@ -14,6 +14,7 @@ type CertManagerWebhookConfig struct {
 
 type CertManagerWebhookFlags struct {
 	loggingFlags
+	APIServerHost                   string   `json:"api-server-host"`
 	ListenPort                      int      `json:"secure-port"`
 	HealthzPort                     int      `json:"healthz-port"`
 	TLSCertFile                     string   `json:"tls-cert-file"`

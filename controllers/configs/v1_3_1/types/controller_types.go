@@ -34,6 +34,7 @@ type CertManagerControllerFlags struct {
 	DNS01RecursiveNameservers              []string      `json:"dns01-recursive-nameservers"`
 	DNS01RecursiveNameserversOnly          bool          `json:"dns01-recursive-nameservers-only"`
 	EnableCertificateOwnerRefs             bool          `json:"enable-certificate-owner-ref"`
+	EnableProfiling                        bool          `json:"enable-profiling"`
 	FeatureGates                           []string      `json:"feature-gates"` // supposed to be map[string]bool
 	IssuerAmbientCredentials               bool          `json:"issuer-ambient-credentials"`
 	KubeAPIBurst                           float64       `json:"kube-api-burst"`
@@ -46,5 +47,4 @@ type CertManagerControllerFlags struct {
 	MaxConcurrentChallenges                float64       `json:"max-concurrent-challenges"`
 	MetricsListenAddress                   string        `json:"metrics-listen-address"`
 	Namespace                              string        `json:"namespace"`
-	RenewBeforeExpiryDuration              time.Duration `json:"renew-before-expiry-duration duration"`
 }
